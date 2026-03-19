@@ -51,16 +51,14 @@ class GameEngine:
             # 2. AGGIORNAMENTO CREATURE
             surviving_creatures = []
             for creature in self.creatures:
-                # Passiamo la lista della biomassa così possono mangiarla!
-                creature.update(self.world, self.biomass)
+                # Novità: Passiamo sia la flora viva che la biomassa morta!
+                creature.update(self.world, self.flora, self.biomass)
                 
                 if creature.is_dead:
-                    self.biomass.extend(creature.pixels) # Diventano cibo per altri
+                    self.biomass.extend(creature.pixels)
                 else:
                     surviving_creatures.append(creature)
             self.creatures = surviving_creatures
-                
-            await asyncio.sleep(1 / self.tps)
 
 engine = GameEngine()
 
@@ -96,7 +94,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "plants_count": len(engine.flora),
                 "biomass_count": len(engine.biomass),
                 "creatures_count": len(engine.creatures),
-                "pixels": all_pixels 
+                "pixels": all_pixels
             })
     except WebSocketDisconnect:
         pass

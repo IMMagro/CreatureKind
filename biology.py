@@ -76,75 +76,89 @@ class Plant:
 # Aggiungi questo in fondo a biology.py, sotto la classe Plant
 import math
 
+import math
+import random
+from physics import Pixel, ToroidalSpace
+
 class PrimitiveCreature:
-    """Il primo erbivoro/spazzino del mondo."""
     def __init__(self, id: str, x: float, y: float):
         self.id = id
-        self.energy = 800.0 # Energia molto alta per iniziare
+        self.energy = 800.0
         self.is_dead = False
         
-        # Morfologia fissa per questa creatura primordiale (Forma a "L" o triangolo)
         self.pixels = [
-            Pixel(id=f"{id}_n", x=x, y=y, pixel_type="Neuro"),          # Occhio/Cervello (al centro)
-            Pixel(id=f"{id}_g", x=x+10, y=y, pixel_type="Gastro"),      # Bocca (davanti)
-            Pixel(id=f"{id}_p", x=x-10, y=y+10, pixel_type="Power")     # Muscolo (dietro)
+            Pixel(id=f"{id}_n", x=x, y=y, pixel_type="Neuro"),
+            Pixel(id=f"{id}_g", x=x+10, y=y, pixel_type="Gastro"),
+            Pixel(id=f"{id}_p", x=x-10, y=y+10, pixel_type="Power")
         ]
         
-        self.speed = 8.0 # Velocità di movimento
-        self.vision_radius = 500.0 # Quanto lontano può "fiutare" il cibo
+        self.speed = 8.0 
+        self.vision_radius = 600.0 
+        # Novità: La creatura nasce guardando in una direzione casuale
+        self.angle = random.uniform(0, 2 * math.pi) 
 
-    def update(self, space: ToroidalSpace, biomass_list: list):
-        """Logica di sopravvivenza della creatura."""
-        if self.is_dead:
-            return
+    def update(self, space: ToroidalSpace, flora_list: list, biomass_list: list):
+        if self.is_dead: return
 
-        self.energy -= 1.5 # Muoversi e pensare costa energia ad ogni tick
-        
+        self.energy -= 1.5 
         if self.energy <= 0:
             self.die()
             return
 
-        # 1. ISTINTO: Trova il cibo più vicino (usiamo la biomassa per ora)
         closest_food = None
         min_dist = self.vision_radius
+        target_list = None # Per sapere da dove cancellare il pixel mangiato
         
-        # Il NeuroPixel è il centro dei sensi
         head_x = self.pixels[0].x 
         head_y = self.pixels[0].y
 
-        for food_pixel in biomass_list:
-            dist = space.distance(head_x, head_y, food_pixel.x, food_pixel.y)
+        # 1A. Cerca Biomassa morta
+        for b_pixel in biomass_list:
+            dist = space.distance(head_x, head_y, b_pixel.x, b_pixel.y)
             if dist < min_dist:
                 min_dist = dist
-                closest_food = food_pixel
+                closest_food = b_pixel
+                target_list = biomass_list
 
-        # 2. MOVIMENTO E ALIMENTAZIONE
+        # 1B. Cerca Piante vive (Novità: Ora sono Erbivori!)
+        for plant in flora_list:
+            if plant.is_dead: continue
+            for p_pixel in plant.pixels:
+                dist = space.distance(head_x, head_y, p_pixel.x, p_pixel.y)
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_food = p_pixel
+                    target_list = plant.pixels # Puntiamo alla lista dei pixel della pianta
+
+        # 2. DECISIONE DI MOVIMENTO
         if closest_food:
-            # Calcola l'angolo verso il cibo
+            # Se vede cibo, punta dritto verso di esso
             dx = closest_food.x - head_x
             dy = closest_food.y - head_y
             
-            # (Risoluzione base del wrap-around per calcolare l'angolo corretto)
             if dx > space.width / 2: dx -= space.width
             elif dx < -space.width / 2: dx += space.width
             if dy > space.height / 2: dy -= space.height
             elif dy < -space.height / 2: dy += space.height
 
-            angle = math.atan2(dy, dx)
-            
-            # Muove l'intera creatura verso il cibo
-            move_x = math.cos(angle) * self.speed
-            move_y = math.sin(angle) * self.speed
-            
-            for p in self.pixels:
-                p.x, p.y = space.wrap(p.x + move_x, p.y + move_y)
+            self.angle = math.atan2(dy, dx)
 
-            # MANGIARE: Se è vicinissimo al cibo, lo mangia!
+            # MANGIARE
             if min_dist < 15.0:
-                self.energy += 150.0 # Recupera molta energia
-                biomass_list.remove(closest_food) # Rimuove il pixel morto dal mondo!
+                self.energy += 100.0 # Recupera energia
+                target_list.remove(closest_food) # Strappa il pixel alla pianta o rimuove la biomassa!
+        else:
+            # VAGABONDAGGIO: Se non vede nulla, cambia leggermente direzione a caso
+            self.angle += random.uniform(-0.3, 0.3)
+            
+        # 3. APPLICA IL MOVIMENTO (Sempre in avanti rispetto al suo angolo)
+        move_x = math.cos(self.angle) * self.speed
+        move_y = math.sin(self.angle) * self.speed
+        
+        for p in self.pixels:
+            p.x, p.y = space.wrap(p.x + move_x, p.y + move_y)
 
     def die(self):
         self.is_dead = True
         for p in self.pixels:
-            p.type = "Biomass" # Anche la creatura diventa concime quando muore
+            p.type = "Biomass"
