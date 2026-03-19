@@ -1,67 +1,91 @@
+# main.py
 import asyncio
+import random
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-# ==========================================
-# ⚙️ ENGINE: Il Loop del Motore di Gioco
-# ==========================================
+from physics import ToroidalSpace
+from biology import Plant
+
 class GameEngine:
     def __init__(self):
         self.tick = 0
         self.running = False
-        self.tps = 30 # Ticks Per Second (30 aggiornamenti al secondo)
+        self.tps = 30 # Rimettiamo a 30 TPS ora che il codice è ottimizzato
+        
+        # IL MONDO SI ESPANDE: 5000 x 5000
+        self.world = ToroidalSpace(width=5000, height=5000)
+        
+        self.flora = []
+        self.biomass = [] # Qui finiranno le foglie morte / pixel in decomposizione
+        
+        for i in range(50): # Partiamo con 50 piante sparse nell'enorme mappa
+            x = random.uniform(0, 5000)
+            y = random.uniform(0, 5000)
+            self.flora.append(Plant(id=f"plant_{i}", start_x=x, start_y=y))
 
     async def loop(self):
-        """Il cuore pulsante dell'universo di CreatureKind"""
         self.running = True
-        print(f"🌍 Motore di CreatureKind avviato a {self.tps} TPS...")
+        print(f"🌍 Ecosistema 5000x5000 avviato!")
         
         while self.running:
             self.tick += 1
             
-            # Qui in futuro chiameremo:
-            # - physics.update()
-            # - biology.process_neat()
-            # - eggs.check_timers()
+            new_spores = []
+            surviving_flora = []
             
-            # Stampa un log ogni 30 tick (1 secondo reale) per non intasare il terminale
-            if self.tick % self.tps == 0:
-                print(f"⏳ Server Tick: {self.tick}")
+            # --- CICLO VITALE ---
+            for plant in self.flora:
+                # La pianta si aggiorna e magari ritorna un "seme"
+                spore = plant.update(self.world)
+                if spore:
+                    new_spores.append(spore)
                 
-            # Mette in pausa la funzione per mantenere i 30 TPS stabili
+                # Smistamento dei morti
+                if plant.is_dead:
+                    # Sposta i pixel morti nella lista "biomass" del server
+                    self.biomass.extend(plant.pixels)
+                else:
+                    surviving_flora.append(plant)
+            
+            # Aggiorna la lista delle piante vive (rimuovendo i morti e aggiungendo i neonati)
+            self.flora = surviving_flora + new_spores
+                
             await asyncio.sleep(1 / self.tps)
 
-# Istanziamo il nostro motore globale
 engine = GameEngine()
 
-# ==========================================
-# 🌐 NETWORK: Inizializzazione Server
-# ==========================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Eseguito all'avvio del server: facciamo partire il Loop in background
     task = asyncio.create_task(engine.loop())
     yield
-    # Eseguito allo spegnimento del server: fermiamo il Loop
     engine.running = False
     task.cancel()
-    print("🛑 Motore di CreatureKind fermato.")
 
-app = FastAPI(lifespan=lifespan, title="CreatureKind Server")
+app = FastAPI(lifespan=lifespan)
 
-# Endpoint WebSocket per la comunicazione con Angular
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    print("🟢 Un client si è connesso (Observer/Giocatore)!")
     try:
         while True:
-            # Per ora, quando il client ci manda qualsiasi cosa,
-            # noi rispondiamo con il Tick corrente del server.
-            data = await websocket.receive_text()
+            await websocket.receive_text()
+            
+            all_pixels = []
+            # 1. Raccoglie i pixel vivi (Gastro)
+            for plant in engine.flora:
+                for p in plant.pixels:
+                    all_pixels.append({"id": p.id, "type": p.type, "x": p.x, "y": p.y})
+            
+            # 2. Raccoglie i pixel morti (Biomass)
+            for p in engine.biomass:
+                all_pixels.append({"id": p.id, "type": p.type, "x": p.x, "y": p.y})
+
             await websocket.send_json({
-                "message": "Stato Server",
-                "current_tick": engine.tick
+                "tick": engine.tick,
+                "plants_count": len(engine.flora),
+                "biomass_count": len(engine.biomass),
+                "pixels": all_pixels
             })
     except WebSocketDisconnect:
-        print("🔴 Il client si è disconnesso.")
+        pass

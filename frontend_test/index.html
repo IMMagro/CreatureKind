@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CreatureKind - Visualizer</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        /* La nostra mappa toroidale 1000x1000 scalata per entrare nello schermo */
+        canvas {
+            background-color: #000000;
+            border: 2px solid #333;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+            width: 800px; 
+            height: 800px;
+        }
+        #stats {
+            margin-bottom: 10px;
+            font-size: 18px;
+            color: #00ff00;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🌍 CreatureKind - Test Mondo</h1>
+    <div id="stats">Connessione in corso...</div>
+    
+    <!-- La tela del nostro universo. La vera risoluzione è 1000x1000 (come il server) -->
+    <canvas id="worldCanvas" width="1000" height="1000"></canvas>
+
+    <script>
+       // [Tieni invariato HTML e CSS di prima, sostituisci solo questo script]
+const canvas = document.getElementById('worldCanvas');
+const ctx = canvas.getContext('2d');
+const statsDiv = document.getElementById('stats');
+
+// Le dimensioni reali del mondo sul server
+const WORLD_WIDTH = 5000;
+const WORLD_HEIGHT = 5000;
+
+// Calcoliamo il fattore di scala per far entrare 5000px in 1000px di canvas
+const scaleX = canvas.width / WORLD_WIDTH;
+const scaleY = canvas.height / WORLD_HEIGHT;
+
+const ws = new WebSocket('ws://localhost:8000/ws');
+
+ws.onopen = () => {
+    statsDiv.innerText = "🟢 Connesso: Simulazione Globale in corso...";
+    setInterval(() => {
+        if(ws.readyState === WebSocket.OPEN) ws.send("req");
+    }, 1000 / 30);
+};
+
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    
+    // UI molto più dettagliata ora
+    statsDiv.innerHTML = `⏳ Tick: ${data.tick} | 🌿 Piante Vive: ${data.plants_count} | 🪨 Biomassa Morta: ${data.biomass_count}`;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    data.pixels.forEach(pixel => {
+        // Colori:
+        if (pixel.type === "Power") ctx.fillStyle = "red";
+        else if (pixel.type === "Gastro") ctx.fillStyle = "#00ff00"; // Verde brillante per la vita
+        else if (pixel.type === "Neuro") ctx.fillStyle = "blue";
+        else if (pixel.type === "Biomass") ctx.fillStyle = "#554433"; // Marrone scuro/grigio per la materia morta
+        else ctx.fillStyle = "white";
+
+        // Mettiamo i pixel morti sotto (disegnamoli per primi se potessimo ordinare, ma l'opacità fa il suo lavoro visivo)
+        if(pixel.type === "Biomass") {
+            ctx.globalAlpha = 0.5; // La materia morta è semi-trasparente
+        } else {
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Magia della Minimappa: moltiplichiamo le coordinate del server per il fattore di scala!
+        // Anche la grandezza del pixel originale (10) viene scalata in proporzione
+        let renderSize = Math.max(1, 10 * scaleX); 
+        ctx.fillRect(pixel.x * scaleX, pixel.y * scaleY, renderSize, renderSize);
+    });
+    ctx.globalAlpha = 1.0; // Reset
+};
+
+ws.onclose = () => {
+    statsDiv.innerText = "🔴 Server disconnesso.";
+    statsDiv.style.color = "red";
+};
+    </script>
+</body>
+</html>
