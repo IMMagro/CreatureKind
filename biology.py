@@ -72,3 +72,79 @@ class Plant:
         self.is_dead = True
         for p in self.pixels:
             p.type = "Biomass" # Cambiamo il tipo di pixel!
+            
+# Aggiungi questo in fondo a biology.py, sotto la classe Plant
+import math
+
+class PrimitiveCreature:
+    """Il primo erbivoro/spazzino del mondo."""
+    def __init__(self, id: str, x: float, y: float):
+        self.id = id
+        self.energy = 800.0 # Energia molto alta per iniziare
+        self.is_dead = False
+        
+        # Morfologia fissa per questa creatura primordiale (Forma a "L" o triangolo)
+        self.pixels = [
+            Pixel(id=f"{id}_n", x=x, y=y, pixel_type="Neuro"),          # Occhio/Cervello (al centro)
+            Pixel(id=f"{id}_g", x=x+10, y=y, pixel_type="Gastro"),      # Bocca (davanti)
+            Pixel(id=f"{id}_p", x=x-10, y=y+10, pixel_type="Power")     # Muscolo (dietro)
+        ]
+        
+        self.speed = 8.0 # Velocità di movimento
+        self.vision_radius = 500.0 # Quanto lontano può "fiutare" il cibo
+
+    def update(self, space: ToroidalSpace, biomass_list: list):
+        """Logica di sopravvivenza della creatura."""
+        if self.is_dead:
+            return
+
+        self.energy -= 1.5 # Muoversi e pensare costa energia ad ogni tick
+        
+        if self.energy <= 0:
+            self.die()
+            return
+
+        # 1. ISTINTO: Trova il cibo più vicino (usiamo la biomassa per ora)
+        closest_food = None
+        min_dist = self.vision_radius
+        
+        # Il NeuroPixel è il centro dei sensi
+        head_x = self.pixels[0].x 
+        head_y = self.pixels[0].y
+
+        for food_pixel in biomass_list:
+            dist = space.distance(head_x, head_y, food_pixel.x, food_pixel.y)
+            if dist < min_dist:
+                min_dist = dist
+                closest_food = food_pixel
+
+        # 2. MOVIMENTO E ALIMENTAZIONE
+        if closest_food:
+            # Calcola l'angolo verso il cibo
+            dx = closest_food.x - head_x
+            dy = closest_food.y - head_y
+            
+            # (Risoluzione base del wrap-around per calcolare l'angolo corretto)
+            if dx > space.width / 2: dx -= space.width
+            elif dx < -space.width / 2: dx += space.width
+            if dy > space.height / 2: dy -= space.height
+            elif dy < -space.height / 2: dy += space.height
+
+            angle = math.atan2(dy, dx)
+            
+            # Muove l'intera creatura verso il cibo
+            move_x = math.cos(angle) * self.speed
+            move_y = math.sin(angle) * self.speed
+            
+            for p in self.pixels:
+                p.x, p.y = space.wrap(p.x + move_x, p.y + move_y)
+
+            # MANGIARE: Se è vicinissimo al cibo, lo mangia!
+            if min_dist < 15.0:
+                self.energy += 150.0 # Recupera molta energia
+                biomass_list.remove(closest_food) # Rimuove il pixel morto dal mondo!
+
+    def die(self):
+        self.is_dead = True
+        for p in self.pixels:
+            p.type = "Biomass" # Anche la creatura diventa concime quando muore

@@ -5,51 +5,60 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from physics import ToroidalSpace
-from biology import Plant
+from biology import Plant, PrimitiveCreature # Importiamo la nuova creatura!
 
 class GameEngine:
     def __init__(self):
         self.tick = 0
         self.running = False
-        self.tps = 30 # Rimettiamo a 30 TPS ora che il codice è ottimizzato
+        self.tps = 30 
         
-        # IL MONDO SI ESPANDE: 5000 x 5000
-        self.world = ToroidalSpace(width=5000, height=5000)
+        # NUOVO MONDO 16:9 (Adatto agli schermi moderni)
+        self.world = ToroidalSpace(width=6400, height=3600)
         
         self.flora = []
-        self.biomass = [] # Qui finiranno le foglie morte / pixel in decomposizione
+        self.biomass = [] 
+        self.creatures = [] # Nuova lista per gli animali!
         
-        for i in range(50): # Partiamo con 50 piante sparse nell'enorme mappa
-            x = random.uniform(0, 5000)
-            y = random.uniform(0, 5000)
-            self.flora.append(Plant(id=f"plant_{i}", start_x=x, start_y=y))
+        # Creiamo 150 piante per riempire questo mondo gigantesco
+        for i in range(150): 
+            self.flora.append(Plant(id=f"plant_{i}", start_x=random.uniform(0, 6400), start_y=random.uniform(0, 3600)))
+            
+        # Facciamo nascere 10 Creature (Gli Spazzini primordiali)
+        for i in range(10):
+            self.creatures.append(PrimitiveCreature(id=f"c_{i}", x=random.uniform(0, 6400), y=random.uniform(0, 3600)))
 
     async def loop(self):
         self.running = True
-        print(f"🌍 Ecosistema 5000x5000 avviato!")
+        print(f"🌍 Mondo 6400x3600 avviato! Con piante e prime creature.")
         
         while self.running:
             self.tick += 1
             
+            # 1. AGGIORNAMENTO PIANTE
             new_spores = []
             surviving_flora = []
-            
-            # --- CICLO VITALE ---
             for plant in self.flora:
-                # La pianta si aggiorna e magari ritorna un "seme"
                 spore = plant.update(self.world)
-                if spore:
-                    new_spores.append(spore)
+                if spore: new_spores.append(spore)
                 
-                # Smistamento dei morti
                 if plant.is_dead:
-                    # Sposta i pixel morti nella lista "biomass" del server
                     self.biomass.extend(plant.pixels)
                 else:
                     surviving_flora.append(plant)
-            
-            # Aggiorna la lista delle piante vive (rimuovendo i morti e aggiungendo i neonati)
             self.flora = surviving_flora + new_spores
+            
+            # 2. AGGIORNAMENTO CREATURE
+            surviving_creatures = []
+            for creature in self.creatures:
+                # Passiamo la lista della biomassa così possono mangiarla!
+                creature.update(self.world, self.biomass)
+                
+                if creature.is_dead:
+                    self.biomass.extend(creature.pixels) # Diventano cibo per altri
+                else:
+                    surviving_creatures.append(creature)
+            self.creatures = surviving_creatures
                 
             await asyncio.sleep(1 / self.tps)
 
@@ -72,20 +81,22 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text()
             
             all_pixels = []
-            # 1. Raccoglie i pixel vivi (Gastro)
             for plant in engine.flora:
-                for p in plant.pixels:
-                    all_pixels.append({"id": p.id, "type": p.type, "x": p.x, "y": p.y})
+                for p in plant.pixels: all_pixels.append({"type": p.type, "x": p.x, "y": p.y})
             
-            # 2. Raccoglie i pixel morti (Biomass)
             for p in engine.biomass:
-                all_pixels.append({"id": p.id, "type": p.type, "x": p.x, "y": p.y})
+                all_pixels.append({"type": p.type, "x": p.x, "y": p.y})
+                
+            for creature in engine.creatures:
+                for p in creature.pixels: all_pixels.append({"type": p.type, "x": p.x, "y": p.y})
 
+            # Passiamo anche il numero di creature all'HUD
             await websocket.send_json({
                 "tick": engine.tick,
                 "plants_count": len(engine.flora),
                 "biomass_count": len(engine.biomass),
-                "pixels": all_pixels
+                "creatures_count": len(engine.creatures),
+                "pixels": all_pixels 
             })
     except WebSocketDisconnect:
         pass
