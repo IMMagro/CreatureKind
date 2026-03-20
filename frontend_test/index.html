@@ -5,42 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CreatureKind - Simulazione Globale</title>
     <style>
-        /* Resettiamo i margini per occupare il 100% dello schermo */
         body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #050505;
-            overflow: hidden; /* Toglie le barre di scorrimento */
-            font-family: monospace;
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #050505; overflow: hidden; font-family: monospace;
         }
-        
-        /* UI in sovraimpressione (Stile HUD da gioco) */
         #hud {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            border: 1px solid #333;
-            border-radius: 5px;
-            color: #00ff00;
-            z-index: 10;
-            pointer-events: none; /* Non blocca i click del mouse */
+            position: absolute; top: 10px; left: 10px;
+            background: rgba(0, 0, 0, 0.8); padding: 15px;
+            border: 1px solid #333; border-radius: 8px;
+            color: #00ff00; z-index: 10; pointer-events: none;
+            font-size: 16px; min-width: 200px;
         }
-
-        /* Il Canvas ora riempirà lo schermo */
-        canvas {
-            display: block;
-            width: 100vw;
-            height: 100vh;
-        }
+        canvas { display: block; width: 100vw; height: 100vh; }
     </style>
 </head>
 <body>
 
-    <div id="hud">Connessione al Server...</div>
+    <div id="hud">⏳ In attesa di connessione...</div>
     <canvas id="worldCanvas"></canvas>
 
     <script>
@@ -48,62 +29,79 @@
         const ctx = canvas.getContext('2d');
         const hud = document.getElementById('hud');
 
-        // Le nuove dimensioni del server (16:9 per adattarsi ai monitor)
         const WORLD_WIDTH = 6400;
         const WORLD_HEIGHT = 3600;
 
-        // Funzione per ridimensionare il canvas se ridimensioni la finestra del browser
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
         window.addEventListener('resize', resizeCanvas);
-        resizeCanvas(); // Chiamata iniziale
+        resizeCanvas();
 
-        const ws = new WebSocket('ws://localhost:8000/ws');
+        console.log("Tentativo di connessione a: ws://" + window.location.host + "/ws");
+        const ws = new WebSocket('ws://127.0.0.1:8000/ws');
 
         ws.onopen = () => {
+            console.log("🟢 WebSocket Connesso!");
+            hud.innerHTML = "🟢 Connesso! Avvio motore...";
+            
+            // Chiede i dati al server 30 volte al secondo
             setInterval(() => {
-                if(ws.readyState === WebSocket.OPEN) ws.send("req");
+                if(ws.readyState === WebSocket.OPEN) {
+                    ws.send("req");
+                }
             }, 1000 / 30);
         };
 
         ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            
-            hud.innerHTML = `
-                <b>CreatureKind Engine</b><br>
-                ⏳ Tick: ${data.tick}<br>
-                🌿 Piante: ${data.plants_count} | 🪨 Biomassa: ${data.biomass_count}<br>
-                🦠 Creature: ${data.creatures_count}
-            `;
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            try {
+                // Se il messaggio non sembra JSON, ignoralo
+                if (!event.data.startsWith('{')) {
+                    console.warn("Messaggio non-JSON ignorato:", event.data);
+                    return; 
+                }
 
-            // Calcoliamo la scala dinamicamente in base a quanto è grande la tua finestra
-            const scaleX = canvas.width / WORLD_WIDTH;
-            const scaleY = canvas.height / WORLD_HEIGHT;
+                const data = JSON.parse(event.data);
+                
+                hud.innerHTML = `
+                    <b>CreatureKind Engine</b><br>
+                    <hr style="border-color:#333; margin: 5px 0;">
+                    ⏳ Tick: ${data.tick}<br>
+                    🌿 Piante: ${data.plants_count} | 🪨 Biomassa: ${data.biomass_count}<br>
+                    🦠 Creature (Gen 0): ${data.creatures_count}
+                `;
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const scaleX = canvas.width / WORLD_WIDTH;
+                const scaleY = canvas.height / WORLD_HEIGHT;
 
-            data.pixels.forEach(pixel => {
-                if (pixel.type === "Power") ctx.fillStyle = "#ff3333";
-                else if (pixel.type === "Gastro") ctx.fillStyle = "#00ff00";
-                else if (pixel.type === "Neuro") ctx.fillStyle = "#33bbff";
-                else if (pixel.type === "Biomass") ctx.fillStyle = "#4a3b2c";
-                else ctx.fillStyle = "white";
+                data.pixels.forEach(pixel => {
+                    if (pixel.type === "Power") ctx.fillStyle = "#ff3333";
+                    else if (pixel.type === "Gastro") ctx.fillStyle = "#00ff00";
+                    else if (pixel.type === "Neuro") ctx.fillStyle = "#33bbff";
+                    else if (pixel.type === "Biomass") ctx.fillStyle = "#4a3b2c";
+                    else ctx.fillStyle = "white";
 
-                ctx.globalAlpha = (pixel.type === "Biomass") ? 0.4 : 1.0;
+                    ctx.globalAlpha = (pixel.type === "Biomass") ? 0.4 : 1.0;
+                    let renderWidth = Math.max(2, 10 * scaleX); 
+                    let renderHeight = Math.max(2, 10 * scaleY);
+                    ctx.fillRect(pixel.x * scaleX, pixel.y * scaleY, renderWidth, renderHeight);
+                });
+                ctx.globalAlpha = 1.0;
+            } catch (error) {
+                console.error("Errore critico durante il disegno:", error);
+            }
+        };
 
-                // Grandezza minima 2 pixel, ma scala proporzionalmente al mondo
-                let renderWidth = Math.max(2, 10 * scaleX); 
-                let renderHeight = Math.max(2, 10 * scaleY);
-
-                ctx.fillRect(pixel.x * scaleX, pixel.y * scaleY, renderWidth, renderHeight);
-            });
-            ctx.globalAlpha = 1.0;
+        ws.onerror = (error) => {
+            console.error("🔴 Errore WebSocket:", error);
+            hud.innerHTML = "<span style='color:red'>🔴 Errore di connessione. Controlla la console (F12).</span>";
         };
 
         ws.onclose = () => {
-            hud.innerHTML = "<span style='color:red'>🔴 Server offline.</span>";
+            console.log("🔴 WebSocket Chiuso.");
+            hud.innerHTML = "<span style='color:red'>🔴 Server offline o disconnesso.</span>";
         };
     </script>
 </body>
