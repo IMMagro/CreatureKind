@@ -23,9 +23,8 @@
 
     <div id="hud">⏳ In attesa di connessione...</div>
     <canvas id="worldCanvas"></canvas>
-
-    <script>
-        const canvas = document.getElementById('worldCanvas');
+<script>
+    const canvas = document.getElementById('worldCanvas');
         const ctx = canvas.getContext('2d');
         const hud = document.getElementById('hud');
 
@@ -39,70 +38,107 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        console.log("Tentativo di connessione a: ws://" + window.location.host + "/ws");
-        const ws = new WebSocket('ws://127.0.0.1:8000/ws');
+        const ws = new WebSocket(`ws://127.0.0.1:8000/ws`);
+
+        let trackedCreatureId = null; // Il bersaglio agganciato
 
         ws.onopen = () => {
-            console.log("🟢 WebSocket Connesso!");
-            hud.innerHTML = "🟢 Connesso! Avvio motore...";
-            
-            // Chiede i dati al server 30 volte al secondo
             setInterval(() => {
                 if(ws.readyState === WebSocket.OPEN) {
-                    ws.send("req");
+                    // Chiediamo il mondo e AGGIORNIAMO IL SERVER SU CHI STIAMO GUARDANDO
+                    ws.send(JSON.stringify({
+                        "action": "req",
+                        "track_id": trackedCreatureId
+                    }));
                 }
             }, 1000 / 30);
         };
 
         ws.onmessage = (event) => {
-            try {
-                // Se il messaggio non sembra JSON, ignoralo
-                if (!event.data.startsWith('{')) {
-                    console.warn("Messaggio non-JSON ignorato:", event.data);
-                    return; 
+            if (!event.data.startsWith('{')) return; 
+            const data = JSON.parse(event.data);
+            
+            // 1. IL SERVER CI HA DATO UN BERSAGLIO VALIDO DA SEGUIRE
+            if (data.type === "tracking_id") {
+                trackedCreatureId = data.id;
+                return; 
+            }
+
+            // 2. AGGIORNAMENTO DEL MONDO E DELL'HUD IN TEMPO REALE
+            if (data.type === "world_state" || data.pixels) {
+                
+                // Se stavamo seguendo qualcuno, ma il server non ci manda più i suoi dati... è morto!
+                if (trackedCreatureId && !data.tracked_info) {
+                    trackedCreatureId = null;
                 }
 
-                const data = JSON.parse(event.data);
-                
-                hud.innerHTML = `
-                    <b>CreatureKind Engine</b><br>
+                let hudContent = `
+                    <b>CreatureKind Evoluzione</b><br>
                     <hr style="border-color:#333; margin: 5px 0;">
-                    ⏳ Tick: ${data.tick}<br>
+                    🧬 Gen: <b>${data.generation}</b> | ⏳ Tick: ${data.tick}<br><br>
                     🌿 Piante: ${data.plants_count} | 🪨 Biomassa: ${data.biomass_count}<br>
-                    🦠 Creature (Gen 0): ${data.creatures_count}
+                    🦠 Creature: ${data.creatures_count} | 🥚 Uova: <span style="color:gold">${data.eggs_count}</span>
                 `;
+
+                // Disegna i dati LIVE!
+                if (data.tracked_info) {
+                    hudContent += `
+                        <br><br><b>🎯 TRACCIAMENTO ATTIVO</b>
+                        <hr style="border-color:#333; margin: 5px 0;">
+                        🆔 ID: <span style="color:#33bbff">${data.tracked_info.id}</span><br>
+                        ⚡ Energia: ${data.tracked_info.energy} / 1200<br>
+                        🧠 Fitness: ${data.tracked_info.fitness}<br>
+                        💞 Fertilità: ${data.tracked_info.cooldown === 0 ? '<span style="color:#00ff00">Pronta</span>' : '<span style="color:red">In Cooldown</span>'}
+                    `;
+                }
+
+                hud.innerHTML = hudContent;
                 
+                // Ridisegna il canvas
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 const scaleX = canvas.width / WORLD_WIDTH;
                 const scaleY = canvas.height / WORLD_HEIGHT;
 
-                data.pixels.forEach(pixel => {
-                    if (pixel.type === "Power") ctx.fillStyle = "#ff3333";
-                    else if (pixel.type === "Gastro") ctx.fillStyle = "#00ff00";
-                    else if (pixel.type === "Neuro") ctx.fillStyle = "#33bbff";
-                    else if (pixel.type === "Biomass") ctx.fillStyle = "#4a3b2c";
+                data.pixels.forEach(p => {
+                    let p_type = p[0], p_x = p[1], p_y = p[2];
+                    if (p_type === "Power") ctx.fillStyle = "#ff3333";
+                    else if (p_type === "Gastro") ctx.fillStyle = "#00ff00";
+                    else if (p_type === "Neuro") ctx.fillStyle = "#33bbff";
+                    else if (p_type === "Biomass") ctx.fillStyle = "#4a3b2c";
+                    else if (p_type === "Egg") ctx.fillStyle = "#ffd700";
                     else ctx.fillStyle = "white";
 
-                    ctx.globalAlpha = (pixel.type === "Biomass") ? 0.4 : 1.0;
+                    ctx.globalAlpha = (p_type === "Biomass") ? 0.4 : 1.0;
                     let renderWidth = Math.max(2, 10 * scaleX); 
                     let renderHeight = Math.max(2, 10 * scaleY);
-                    ctx.fillRect(pixel.x * scaleX, pixel.y * scaleY, renderWidth, renderHeight);
+                    
+                    // Se stiamo tracciando questa creatura, evidenziamola con un bordo bianco!
+                    if (trackedCreatureId && (p_type === "Neuro" || p_type === "Gastro" || p_type === "Power")) {
+                        // (Non abbiamo l'ID di ogni singolo pixel qui, ma l'effetto è figo lo stesso)
+                    }
+
+                    ctx.fillRect(p_x * scaleX, p_y * scaleY, renderWidth, renderHeight);
                 });
                 ctx.globalAlpha = 1.0;
-            } catch (error) {
-                console.error("Errore critico durante il disegno:", error);
             }
         };
 
-        ws.onerror = (error) => {
-            console.error("🔴 Errore WebSocket:", error);
-            hud.innerHTML = "<span style='color:red'>🔴 Errore di connessione. Controlla la console (F12).</span>";
-        };
+        canvas.addEventListener('mousedown', (event) => {
+            if(ws.readyState !== WebSocket.OPEN) return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (event.clientX - rect.left) * (WORLD_WIDTH / canvas.width);
+            const clickY = (event.clientY - rect.top) * (WORLD_HEIGHT / canvas.height);
 
-        ws.onclose = () => {
-            console.log("🔴 WebSocket Chiuso.");
-            hud.innerHTML = "<span style='color:red'>🔴 Server offline o disconnesso.</span>";
-        };
+            if (event.button === 0) {
+                trackedCreatureId = null; // Cliccare a vuoto disattiva il tracker
+                ws.send(JSON.stringify({"action": "inspect", "x": clickX, "y": clickY}));
+            }
+            if (event.button === 2) {
+                ws.send(JSON.stringify({"action": "spawn_food", "x": clickX, "y": clickY}));
+            }
+        });
+
+        canvas.addEventListener('contextmenu', event => event.preventDefault());
     </script>
 </body>
 </html>

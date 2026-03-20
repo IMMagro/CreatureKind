@@ -9,7 +9,7 @@ class Plant:
         self.id = id
         self.energy = 50.0
         self.age = 0
-        self.max_age = random.randint(800, 1500) 
+        self.max_age = random.randint(500, 1500) 
         self.is_dead = False
         
         first_cell = Pixel(id=f"{self.id}_0", x=start_x, y=start_y, pixel_type="Gastro")
@@ -72,7 +72,7 @@ class SmartCreature:
         self.id = id
         self.energy = 800.0
         self.is_dead = False
-        
+        self.mating_cooldown = 0 
         # Genetica e Cervello
         self.genome = genome
         self.genome.fitness = 0.0 
@@ -88,66 +88,102 @@ class SmartCreature:
         self.vision_radius = 600.0 
         self.angle = random.uniform(0, 2 * math.pi) 
 
-    def update(self, space: ToroidalSpace, flora_list: list, biomass_list: list):
+    def update(self, space: ToroidalSpace, flora_list: list, biomass_list: list, all_creatures: list):
         if self.is_dead: return
 
         self.energy -= 1.5
         self.genome.fitness += 0.1 
         
+        if self.mating_cooldown > 0:
+            self.mating_cooldown -= 1
+            
         if self.energy <= 0:
             self.die()
             return
 
-        # --- 1. I SENSI ---
-        closest_food = None
-        min_dist = self.vision_radius
-        target_list = None
-        
         head_x, head_y = self.pixels[0].x, self.pixels[0].y
 
+        # --- 1. SENSO DEL CIBO (Piante e Biomassa) ---
+        closest_food = None
+        min_food_dist = self.vision_radius
+        target_list = None
+        
         for b_pixel in biomass_list:
             dist = space.distance(head_x, head_y, b_pixel.x, b_pixel.y)
-            if dist < min_dist: min_dist, closest_food, target_list = dist, b_pixel, biomass_list
+            if dist < min_food_dist: min_food_dist, closest_food, target_list = dist, b_pixel, biomass_list
 
         for plant in flora_list:
-            if plant.is_dead: continue
-            for p_pixel in plant.pixels:
-                dist = space.distance(head_x, head_y, p_pixel.x, p_pixel.y)
-                if dist < min_dist: min_dist, closest_food, target_list = dist, p_pixel, plant.pixels
+            if plant.is_dead or not plant.pixels: continue
+            center_x, center_y = plant.pixels[0].x, plant.pixels[0].y
+            if space.distance(head_x, head_y, center_x, center_y) < self.vision_radius + 50:
+                for p_pixel in plant.pixels:
+                    dist = space.distance(head_x, head_y, p_pixel.x, p_pixel.y)
+                    if dist < min_food_dist: min_food_dist, closest_food, target_list = dist, p_pixel, plant.pixels
 
-        input_dist = 1.0 
-        input_angle = 0.0
+        # --- 2. NUOVO SENSO: IL RADAR PER LE ALTRE CREATURE ---
+        closest_creature = None
+        min_creat_dist = self.vision_radius
+        
+        for other in all_creatures:
+            if other.id == self.id or other.is_dead: continue # Non guardare te stesso o i morti
+            dist = space.distance(head_x, head_y, other.pixels[0].x, other.pixels[0].y)
+            if dist < min_creat_dist:
+                min_creat_dist = dist
+                closest_creature = other
+
+        # --- PREPARAZIONE DEGLI INPUT PER IL CERVELLO (Da -1.0 a 1.0) ---
+        input_food_dist = 1.0 
+        input_food_angle = 0.0
+        
+        # Nuovi input
+        input_creat_dist = 1.0
+        input_creat_angle = 0.0
+        
         input_energy = self.energy / 800.0 
 
+        # Calcolo angolo cibo
         if closest_food:
-            input_dist = min_dist / self.vision_radius 
-            
+            input_food_dist = min_food_dist / self.vision_radius 
             dx = closest_food.x - head_x
             dy = closest_food.y - head_y
             if dx > space.width / 2: dx -= space.width
             elif dx < -space.width / 2: dx += space.width
             if dy > space.height / 2: dy -= space.height
             elif dy < -space.height / 2: dy += space.height
-
-            target_angle = math.atan2(dy, dx)
-            diff = target_angle - self.angle
-            diff = (diff + math.pi) % (2 * math.pi) - math.pi 
-            input_angle = diff / math.pi 
             
-            if min_dist < 15.0:
+            target_angle = math.atan2(dy, dx)
+            diff = (target_angle - self.angle + math.pi) % (2 * math.pi) - math.pi 
+            input_food_angle = diff / math.pi 
+            
+            # Mangia il cibo statico (Piante/Biomassa)
+            if min_food_dist < 15.0:
                 self.energy += 100.0
                 self.genome.fitness += 10.0 
                 target_list.remove(closest_food)
 
-        # --- 2. IL CERVELLO ---
-        outputs = self.brain.activate((input_dist, input_angle, input_energy))
+        # Calcolo angolo altra creatura (Preda, Predatore o Partner)
+        if closest_creature:
+            input_creat_dist = min_creat_dist / self.vision_radius
+            dx = closest_creature.pixels[0].x - head_x
+            dy = closest_creature.pixels[0].y - head_y
+            if dx > space.width / 2: dx -= space.width
+            elif dx < -space.width / 2: dx += space.width
+            if dy > space.height / 2: dy -= space.height
+            elif dy < -space.height / 2: dy += space.height
+            
+            target_angle = math.atan2(dy, dx)
+            diff = (target_angle - self.angle + math.pi) % (2 * math.pi) - math.pi 
+            input_creat_angle = diff / math.pi 
+
+        # --- 3. IL CERVELLO A 5 INPUT ---
+        # Ora passiamo 5 valori alla rete neurale!
+        outputs = self.brain.activate((input_food_dist, input_food_angle, input_creat_dist, input_creat_angle, input_energy))
+        
         turn_signal = outputs[0]  
         speed_signal = outputs[1] 
 
-        # --- 3. I MUSCOLI ---
         self.angle += turn_signal * 0.2 
         actual_speed = self.max_speed * max(0.0, speed_signal) 
-
         move_x = math.cos(self.angle) * actual_speed
         move_y = math.sin(self.angle) * actual_speed
         
@@ -157,3 +193,38 @@ class SmartCreature:
     def die(self):
         self.is_dead = True
         for p in self.pixels: p.type = "Biomass"
+        
+        
+# Aggiungi questo in fondo a biology.py
+
+class Egg:
+    """Un uovo fisico deposto nel mondo. Contiene un genoma in incubazione."""
+    def __init__(self, id: str, x: float, y: float, genome, neat_config):
+        self.id = id
+        # Un singolo pixel dorato per rappresentare l'uovo
+        self.pixels = [Pixel(id=f"{id}_e", x=x, y=y, pixel_type="Egg")] 
+        
+        self.genome = genome
+        self.neat_config = neat_config
+        
+        # TIMER DI SCHIUSA: 
+        # 30 Ticks = 1 Secondo. 
+        # Per testare mettiamo 150 (5 secondi). 
+        # IN FUTURO: per 10 minuti, scrivi 18000!
+        self.hatch_timer = 150 
+        self.is_hatched = False
+
+    def update(self):
+        """Diminuisce il timer. Se arriva a zero, l'uovo si schiude e restituisce una Creatura."""
+        self.hatch_timer -= 1
+        
+        if self.hatch_timer <= 0 and not self.is_hatched:
+            self.is_hatched = True
+            
+            # Nasce la creatura! Usiamo le stesse coordinate dell'uovo e gli diamo il DNA incubato
+            new_creature_id = self.id.replace("egg", "c")
+            x = self.pixels[0].x
+            y = self.pixels[0].y
+            return SmartCreature(new_creature_id, x, y, self.genome, self.neat_config)
+            
+        return None

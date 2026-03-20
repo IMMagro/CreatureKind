@@ -1,0 +1,13 @@
+/* Resetta i margini diabolici del browser */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  
+  /* Mettiamo uno sfondo scuro di base così non vedrai MAI un lampo bianco caricando la pagina */
+  background-color: #000000; 
+  
+  /* Impedisce che appaiano barre di scorrimento laterali se qualcosa sfora di 1 millimetro */
+  overflow: hidden; 
+}

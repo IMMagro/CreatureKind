@@ -1,0 +1,99 @@
+.lab-container {
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle at center, #0f172a 0%, #000000 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Courier New', Courier, monospace;
+  color: #e2e8f0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Sfondo a griglia da laboratorio HUD */
+.hud-lines {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background-image: 
+    linear-gradient(rgba(0, 255, 204, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 204, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+  z-index: 1;
+}
+
+.content {
+  z-index: 2;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.system-status {
+  color: #00ffcc;
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.blinking-dot {
+  width: 8px; height: 8px;
+  background-color: #00ffcc;
+  border-radius: 50%;
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+.glitch-title {
+  font-size: 4.5rem;
+  margin: 0;
+  color: #ffffff;
+  letter-spacing: 8px;
+  text-transform: uppercase;
+  text-shadow: 0 0 20px rgba(0, 255, 204, 0.4);
+}
+
+.subtitle {
+  color: #94a3b8;
+  font-size: 1.2rem;
+  letter-spacing: 4px;
+  margin-top: -10px;
+}
+
+.data-box {
+  text-align: left;
+  background: rgba(0, 255, 204, 0.05);
+  border-left: 3px solid #00ffcc;
+  padding: 15px 25px;
+  margin: 30px 0;
+  color: #00ffcc;
+  font-size: 0.9rem;
+}
+
+.data-box p { margin: 5px 0; opacity: 0.8; }
+
+.btn-enter {
+  margin-top: 20px;
+  padding: 15px 40px;
+  background: transparent;
+  border: 1px solid #00ffcc;
+  color: #00ffcc;
+  font-size: 1.2rem;
+  font-family: inherit;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.1) inset;
+}
+
+.btn-enter:hover {
+  background: #00ffcc;
+  color: #000;
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.6), 0 0 20px rgba(0, 255, 204, 0.6) inset;
+  transform: scale(1.05);
+}

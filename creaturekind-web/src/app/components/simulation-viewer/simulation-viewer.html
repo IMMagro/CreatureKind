@@ -1,0 +1,29 @@
+<div class="simulation-container">
+  
+  <div id="hud" *ngIf="hudData">
+    <!-- ... [Il contenuto dell'HUD rimane identico] ... -->
+    <b>CreatureKind Evoluzione</b><br>
+    <hr>
+    🧬 Gen: <b>{{ hudData.generation }}</b> | ⏳ Tick: {{ hudData.tick }}<br><br>
+    🌿 Piante: {{ hudData.plants_count }} | 🪨 Biomassa: {{ hudData.biomass_count }}<br>
+    🦠 Creature: {{ hudData.creatures_count }} | 🥚 Uova: <span class="gold">{{ hudData.eggs_count }}</span>
+
+    <div *ngIf="trackedInfo">
+        <br><br><b>🎯 TRACCIAMENTO ATTIVO</b>
+        <hr>
+        🆔 ID: <span class="blue">{{ trackedInfo.id }}</span><br>
+        ⚡ Energia: {{ trackedInfo.energy }} / 1200<br>
+        🧠 Fitness: {{ trackedInfo.fitness }}<br>
+        💞 Fertilità: <span [class.ready]="trackedInfo.cooldown === 0" [class.cooldown]="trackedInfo.cooldown > 0">
+          {{ trackedInfo.cooldown === 0 ? 'Pronta' : 'In Cooldown' }}
+        </span>
+    </div>
+  </div>
+  
+  <!-- IL NUOVO PULSANTE DI USCITA -->
+  <button class="btn-exit" (click)="goHome()">
+    [ TERMINA OSSERVAZIONE ]
+  </button>
+
+  <canvas #worldCanvas (mousedown)="onCanvasClick($event)" (contextmenu)="$event.preventDefault()"></canvas>
+</div>

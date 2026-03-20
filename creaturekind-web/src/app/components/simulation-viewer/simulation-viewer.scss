@@ -1,0 +1,59 @@
+.simulation-container {
+  width: 100vw;
+  height: 100vh;
+  background-color: #050505;
+  overflow: hidden;
+  position: relative;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 15px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #00ff00;
+  z-index: 10;
+  pointer-events: none;
+  font-size: 16px;
+  min-width: 200px;
+  font-family: monospace;
+  
+  hr { border-color: #333; margin: 5px 0; }
+  .gold { color: #ffd700; }
+  .blue { color: #33bbff; }
+  .ready { color: #00ff00; }
+  .cooldown { color: red; }
+}
+/* Stile del pulsante di uscita in alto a destra */
+.btn-exit {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid #ff3333;
+  color: #ff3333;
+  padding: 10px 20px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  z-index: 20; /* Deve stare sopra il canvas per essere cliccabile! */
+  transition: all 0.3s ease;
+  box-shadow: 0 0 10px rgba(255, 51, 51, 0.1) inset;
+
+  &:hover {
+    background: #ff3333;
+    color: #000;
+    box-shadow: 0 0 20px rgba(255, 51, 51, 0.6), 0 0 15px rgba(255, 51, 51, 0.6) inset;
+    transform: scale(1.05);
+  }
+}
