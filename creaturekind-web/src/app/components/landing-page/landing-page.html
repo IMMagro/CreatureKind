@@ -1,25 +1,115 @@
-<div class="lab-container">
+<div class="xtract-layout">
   
-  <div class="hud-lines"></div>
-
-  <div class="content">
-    <div class="system-status">
-      <span class="blinking-dot"></span> SYSTEM ONLINE // NEURAL ENGINE V1.0
-    </div>
-    
-    <h1 class="glitch-title">CreatureKind</h1>
-    <p class="subtitle">Open-Ended Artificial Life Simulator</p>
-
-    <div class="data-box">
-      <p>> Inizializzazione Ambiente Toroidale... [OK]</p>
-      <p>> Caricamento Genomi NEAT... [OK]</p>
-      <p>> Attesa Connessione Observer...</p>
-    </div>
-
-    <!-- IL PULSANTE MAGICO -->
-    <button class="btn-enter" (click)="enterWorld()">
-      [ INIZIALIZZA OSSERVAZIONE ]
-    </button>
+  <!-- GLI ORB DI SFONDO (Fissi per dare l'effetto parallasse) -->
+  <div class="glow-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
   </div>
+
+  <!-- SEZIONE 1: HERO (Schermata Iniziale) -->
+  <section class="hero-section">
+    <div class="hero-content">
+      <div class="badge fade-up delay-1">
+        <span class="dot"></span> Neural Engine V2.0 Online
+      </div>
+      <h1 class="title fade-up delay-2">
+        Creature<br><span class="gradient-text">Kind.</span>
+      </h1>
+      <p class="subtitle fade-up delay-3">
+        Il primo ecosistema persistente in cui Reti Neurali mutano, si riproducono e combattono in tempo reale.
+      </p>
+      <div class="actions fade-up delay-4">
+        <button class="primary-btn" (click)="enterWorld()">
+          Entra nel Mondo
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SEZIONE 2: CARD ANIMATE (Curiosità) -->
+  <section class="info-section">
+    <h2 class="section-title">Natura Sintetica</h2>
+    <p class="section-desc">Regole biologiche calcolate a 60 Frame al Secondo.</p>
+    
+    <div class="cards-grid">
+      <!-- Card 1 -->
+      <div class="glass-card">
+        <div class="icon-box">🧠</div>
+        <h3>Neuro-Evoluzione (NEAT)</h3>
+        <p>I cervelli non sono programmati. Partono da zero e crescono nuovi neuroni di generazione in generazione tramite mutazioni casuali.</p>
+      </div>
+      <!-- Card 2 -->
+      <div class="glass-card">
+        <div class="icon-box">🧬</div>
+        <h3>Riproduzione Dinamica</h3>
+        <p>Le creature che riescono a nutrirsi depongono uova fisiche. Il DNA dei figli è un incrocio (crossover) delle topologie dei genitori.</p>
+      </div>
+      <!-- Card 3 -->
+      <div class="glass-card">
+        <div class="icon-box">🌍</div>
+        <h3>Spazio Toroidale</h3>
+        <p>Un universo infinito senza confini. Attraversando il confine nord, si riappare a sud. Le distanze visive curvano con lo spazio.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SEZIONE 3: PIANI E ACCESSO -->
+  <section class="pricing-section">
+    <h2 class="section-title">Scegli il tuo Livello di Accesso</h2>
+    
+    <div class="pricing-grid">
+      
+      <!-- PIANO FREE -->
+      <div class="price-card">
+        <h4>Observer</h4>
+        <div class="price">Free</div>
+        <p class="desc">Per chi vuole solo guardare l'evoluzione fare il suo corso.</p>
+        <ul class="features">
+          <li>✔ Accesso in Sola Lettura</li>
+          <li>✔ Ispezione Creature Base</li>
+          <li>✖ Nessuna Interazione Divina</li>
+        </ul>
+        <button class="secondary-btn">Crea Account</button>
+      </div>
+
+      <!-- PIANO EXPLORER (In Evidenza) -->
+      <div class="price-card pro-card">
+        <div class="popular-badge">Most Popular</div>
+        <h4>Explorer</h4>
+        <div class="price">€4<span class="month">/mo</span></div>
+        <p class="desc">Per i veri Architetti dell'ALife. Prendi il controllo.</p>
+        <ul class="features">
+          <li>✔ Accesso Totale</li>
+          <li>✔ Spawn Cibo Divino (Click Destro)</li>
+          <li>✔ Tracciamento Neuroni in Diretta</li>
+          <li>✔ Dashboard Profilo Esclusiva</li>
+        </ul>
+        <button class="primary-btn full-width" (click)="enterWorld()">Accedi Ora</button>
+      </div>
+
+      <!-- PIANO COMING SOON -->
+      <div class="price-card disabled-card">
+        <h4>Creator</h4>
+        <div class="price">TBA</div>
+        <p class="desc">Crea i tuoi mondi privati e isolati.</p>
+        <ul class="features">
+          <li>Sandbox Privato</li>
+          <li>Modifica Genetica Custom</li>
+          <li>Cloud Save Personale</li>
+        </ul>
+        <button class="secondary-btn disabled">Coming Soon</button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>© 2026 CreatureKind. Progetto di Vita Artificiale.</p>
+  </footer>
 
 </div>

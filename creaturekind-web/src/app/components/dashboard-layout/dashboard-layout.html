@@ -1,0 +1,46 @@
+<div class="dashboard-container">
+  
+  <!-- LA SIDEBAR LATERALE -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="dot"></div> Creature<span>Kind</span>
+    </div>
+
+    <!-- Profilo Utente Rapido -->
+    <div class="user-card">
+      <div class="avatar">A</div>
+      <div class="user-info">
+        <h4>{{ user.name }}</h4>
+        <span class="badge pro">{{ user.plan }}</span>
+      </div>
+    </div>
+
+    <!-- Menu di Navigazione -->
+    <nav class="nav-menu">
+      <a routerLink="/dashboard/profile" routerLinkActive="active" class="nav-item">
+        <span>👤</span> Il Mio Profilo
+      </a>
+      
+      <a routerLink="/dashboard/world" routerLinkActive="active" class="nav-item play-btn">
+        <span>🌍</span> Entra nel Mondo
+      </a>
+
+      <!-- Disabilitato per i futuri piani -->
+      <a class="nav-item disabled">
+        <span>🧬</span> DNA Editor <span class="lock">🔒</span>
+      </a>
+    </nav>
+
+    <div class="bottom-nav">
+      <a routerLink="/" class="nav-item logout">
+        <span>🚪</span> Disconnetti
+      </a>
+    </div>
+  </aside>
+
+  <!-- IL CONTENUTO CENTRALE (Qui caricherà il Profilo o il Mondo) -->
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+
+</div>

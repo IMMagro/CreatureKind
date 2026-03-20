@@ -1,0 +1,40 @@
+.dashboard-container {
+  display: flex; width: 100vw; height: 100vh; background-color: #050505; color: #fff; overflow: hidden;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 280px; background: rgba(15, 23, 42, 0.4); border-right: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex; flex-direction: column; padding: 20px; backdrop-filter: blur(20px); z-index: 100;
+}
+
+.brand { font-size: 1.5rem; font-weight: 900; margin-bottom: 40px; display: flex; align-items: center; gap: 10px; span { color: #a855f7; } }
+.dot { width: 10px; height: 10px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 10px #10b981; }
+
+.user-card {
+  display: flex; align-items: center; gap: 15px; padding: 15px; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 30px;
+}
+.avatar { width: 40px; height: 40px; background: linear-gradient(135deg, #a855f7, #ec4899); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
+.user-info h4 { margin: 0 0 5px 0; font-size: 1rem; }
+.badge.pro { background: rgba(168, 85, 247, 0.2); color: #c084fc; padding: 2px 8px; border-radius: 100px; font-size: 0.7rem; font-weight: bold; border: 1px solid rgba(168, 85, 247, 0.5); }
+
+/* MENU NAVIGAZIONE */
+.nav-menu { display: flex; flex-direction: column; gap: 10px; flex-grow: 1; }
+.nav-item {
+  display: flex; align-items: center; gap: 15px; padding: 12px 15px; color: #94a3b8; text-decoration: none; border-radius: 8px; font-weight: 500; transition: all 0.2s;
+  span { font-size: 1.2rem; }
+  &:hover:not(.disabled) { background: rgba(255,255,255,0.05); color: #fff; }
+  &.active { background: rgba(255,255,255,0.1); color: #fff; border-left: 3px solid #10b981; }
+  &.disabled { opacity: 0.4; cursor: not-allowed; justify-content: space-between; .lock { font-size: 0.9rem; } }
+}
+
+/* BOTTONE PLAY SPECIALE */
+.nav-item.play-btn { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); margin-top: 10px; }
+.nav-item.play-btn:hover { background: #10b981; color: #000; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+
+.bottom-nav { border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px; }
+.logout:hover { color: #f43f5e; background: rgba(244, 63, 94, 0.1); }
+
+/* CONTENUTO CENTRALE */
+.main-content { flex-grow: 1; position: relative; }

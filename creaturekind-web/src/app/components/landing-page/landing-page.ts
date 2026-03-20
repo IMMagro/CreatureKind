@@ -15,7 +15,7 @@ export class LandingPageComponent {
 
   // Funzione chiamata dal pulsante HTML
   enterWorld() {
-    this.router.navigate(['/world']); // Cambia l'URL e carica il Canvas!
+    this.router.navigate(['/dashboard/profile']); 
   }
 
 }

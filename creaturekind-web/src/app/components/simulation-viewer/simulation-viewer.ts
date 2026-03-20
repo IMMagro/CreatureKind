@@ -50,8 +50,8 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
 
   private resizeCanvas() {
     const canvas = this.canvasRef.nativeElement;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width = canvas.parentElement!.clientWidth; 
+    canvas.height = canvas.parentElement!.clientHeight;
   }
 
   private connectWebSocket() {
@@ -94,6 +94,7 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     };
   }
   }
+  // --- MOTORE GRAFICO ---
   private drawWorld(pixels: any[]) {
     const canvas = this.canvasRef.nativeElement;
     this.ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -104,14 +105,17 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     pixels.forEach(p => {
       let p_type = p[0], p_x = p[1], p_y = p[2];
 
-      if (p_type === "Power") this.ctx.fillStyle = "#ff3333";
-      else if (p_type === "Gastro") this.ctx.fillStyle = "#00ff00";
-      else if (p_type === "Neuro") this.ctx.fillStyle = "#33bbff";
-      else if (p_type === "Biomass") this.ctx.fillStyle = "#4a3b2c";
-      else if (p_type === "Egg") this.ctx.fillStyle = "#ffd700";
-      else this.ctx.fillStyle = "white";
+      // LA NUOVA PALETTE COLORI ELEGANTE
+      if (p_type === "Power") this.ctx.fillStyle = "#e11d48"; // Rosso Corallo (Muscoli/Attacco)
+      else if (p_type === "Gastro") this.ctx.fillStyle = "#10b981"; // Verde Smeraldo (Piante/Digestione)
+      else if (p_type === "Neuro") this.ctx.fillStyle = "#6366f1"; // Indaco/Viola (Cervello)
+      else if (p_type === "Biomass") this.ctx.fillStyle = "#cbd5e1"; // Grigio Perla (Detriti morti)
+      else if (p_type === "Egg") this.ctx.fillStyle = "#f59e0b"; // Giallo Ambra (Uova)
+      else this.ctx.fillStyle = "#334155";
 
-      this.ctx.globalAlpha = (p_type === "Biomass") ? 0.4 : 1.0;
+      // Aumentiamo leggermente l'opacità della biomassa per farla vedere sul bianco
+      this.ctx.globalAlpha = (p_type === "Biomass") ? 0.6 : 1.0;
+      
       let renderWidth = Math.max(2, 10 * scaleX); 
       let renderHeight = Math.max(2, 10 * scaleY);
       

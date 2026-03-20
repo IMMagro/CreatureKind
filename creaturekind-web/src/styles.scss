@@ -1,13 +1,19 @@
-/* Resetta i margini diabolici del browser */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+
 html, body {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
-  
-  /* Mettiamo uno sfondo scuro di base così non vedrai MAI un lampo bianco caricando la pagina */
-  background-color: #000000; 
-  
-  /* Impedisce che appaiano barre di scorrimento laterali se qualcosa sfora di 1 millimetro */
-  overflow: hidden; 
+  background-color: #050505; 
+  font-family: 'Inter', sans-serif;
+  color: #ffffff;
+  /* IMPORTANTE: Permette lo scorrimento verticale dolce, nasconde quello orizzontale */
+  overflow-x: hidden; 
+  scroll-behavior: smooth;
 }
+
+/* Stilizziamo la barra di scorrimento in stile dark tech! */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #050505; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }

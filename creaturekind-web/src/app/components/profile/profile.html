@@ -1,0 +1,80 @@
+<div class="profile-container">
+  
+  <!-- Intestazione Profilo -->
+  <header class="profile-header">
+    <div class="header-content">
+      <div class="avatar-large">AS</div>
+      <div class="user-details">
+        <h1>Benvenuto, {{ user.name }}</h1>
+        <p class="email">{{ user.email }} • Utente dal {{ user.joinDate }}</p>
+        <span class="plan-badge">{{ user.plan }}</span>
+      </div>
+    </div>
+    <div class="credits-box">
+      <span class="label">Punti Genoma (DNA)</span>
+      <span class="value">{{ user.credits }}</span>
+      <button class="upgrade-btn">Gestisci Abbonamento</button>
+    </div>
+  </header>
+
+  <hr class="divider">
+
+  <!-- Statistiche del Server -->
+  <div class="stats-section">
+    <h2>Stato del Server: <span class="status-dot"></span> Online</h2>
+    
+    <div class="stats-grid">
+      <!-- Card 1 -->
+      <div class="stat-card">
+        <div class="icon">🧬</div>
+        <div class="info">
+          <span class="title">Generazione Attuale</span>
+          <span class="number">{{ serverStats.totalGenerations }}</span>
+        </div>
+      </div>
+      
+      <!-- Card 2 -->
+      <div class="stat-card">
+        <div class="icon">🧠</div>
+        <div class="info">
+          <span class="title">Max Fitness Storico</span>
+          <span class="number text-green">{{ serverStats.maxFitnessReached }}</span>
+        </div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="stat-card">
+        <div class="icon">💀</div>
+        <div class="info">
+          <span class="title">Eventi di Estinzione</span>
+          <span class="number text-red">{{ serverStats.extinctionEvents }}</span>
+        </div>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="stat-card">
+        <div class="icon">⏱️</div>
+        <div class="info">
+          <span class="title">Uptime Simulazione</span>
+          <span class="number">{{ serverStats.uptime }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cronologia Eventi o Azioni Rapide -->
+  <div class="action-section">
+    <h2>Moduli Sperimentali</h2>
+    <div class="modules-grid">
+      <div class="module-card disabled">
+        <h4>Editor DNA (In arrivo)</h4>
+        <p>Modifica manualmente le reti neurali delle uova prima della schiusa.</p>
+      </div>
+      <div class="module-card disabled">
+        <h4>Climates (In arrivo)</h4>
+        <p>Aggiungi zone radioattive o fredde alla mappa toroidale.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
