@@ -1,5 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-profile',
@@ -8,26 +9,43 @@ import { CommonModule } from '@angular/common';
   templateUrl: './profile.html',
   styleUrls: ['./profile.scss']
 })
-export class ProfileComponent implements OnInit {
+export class ProfileComponent implements OnInit, OnDestroy {
   
-  // Dati Utente
-  user = {
-    name: 'Architetto Supreme',
-    email: 'admin@creaturekind.com',
-    joinDate: '20 Febbraio 2026',
-    plan: 'Explorer Pro',
-    credits: 1500
-  };
+  user = { name: '', email: '', joinDate: 'Oggi', plan: '', credits: 0 };
+  serverStats = { totalGenerations: 0, maxFitnessReached: 0, extinctionEvents: 0, uptime: 'Calcolando...' };
+  private statsInterval: any;
 
-  // Statistiche del Server di Gioco
-  serverStats = {
-    totalGenerations: 142,
-    maxFitnessReached: 8450.2,
-    extinctionEvents: 14,
-    uptime: '14h 22m'
-  };
+  constructor(private http: HttpClient) {}
 
   ngOnInit(): void {
-    // In futuro qui faremo una chiamata API a Python per prendere i dati veri!
+    // PRENDE I DATI REALI DAL BROWSER (Inviati dal DB Python al login!)
+    const savedUser = localStorage.getItem('user_data');
+    if (savedUser) {
+      const parsed = JSON.parse(savedUser);
+      this.user.name = parsed.username;
+      this.user.email = parsed.email;
+      this.user.plan = parsed.plan;
+      this.user.credits = parsed.dna_credits;
+    }
+
+    // Le statistiche server continuano a funzionare in tempo reale!
+    this.fetchServerStats();
+    this.statsInterval = setInterval(() => { this.fetchServerStats(); }, 2000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.statsInterval) clearInterval(this.statsInterval);
+  }
+
+  private fetchServerStats() {
+    this.http.get<any>('http://127.0.0.1:8000/api/server-stats').subscribe({
+      next: (stats) => {
+        this.serverStats.totalGenerations = stats.totalGenerations;
+        this.serverStats.maxFitnessReached = stats.maxFitnessReached;
+        this.serverStats.extinctionEvents = stats.extinctionEvents;
+        this.serverStats.uptime = stats.uptime;
+      },
+      error: (err) => console.error("Errore Statistiche:", err)
+    });
   }
 }

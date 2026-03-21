@@ -1,14 +1,14 @@
 import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, HostListener } from '@angular/core';
-import { CommonModule } from '@angular/common'; // <-- FONDAMENTALE PER L'HTML
-import { Router } from '@angular/router'; // <-- AGGIUNGI QUESTO PER NAVIGARE
-import { ChangeDetectorRef } from '@angular/core'; // <-- AGGIUNGI QUESTO!
+import { CommonModule } from '@angular/common'; 
+import { Router } from '@angular/router'; 
+import { ChangeDetectorRef } from '@angular/core'; 
 
 @Component({
   selector: 'app-simulation-viewer',
-  standalone: true, // <-- FONDAMENTALE NEL NUOVO ANGULAR
-  imports: [CommonModule], // <-- ABILITA GLI *ngIf
-  templateUrl: './simulation-viewer.html',
-  styleUrls: ['./simulation-viewer.scss'] // O .css se hai usato CSS
+  standalone: true, 
+  imports: [CommonModule], 
+  templateUrl: './simulation-viewer.html', // Assicurati che non debba essere .component.html
+  styleUrls: ['./simulation-viewer.scss']  // Assicurati che non debba essere .component.scss
 })
 export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
   
@@ -24,13 +24,14 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
   public hudData: any = null;
   public trackedInfo: any = null;
   private trackedCreatureId: string | null = null;
-  // INIETTIAMO IL ROUTER
+
+  // INIETTIAMO IL ROUTER E IL CHANGE DETECTOR
   constructor(private router: Router, private cdr: ChangeDetectorRef) {}
 
-  // FUNZIONE PER IL PULSANTE
   public goHome() {
-    this.router.navigate(['/']); // Ci riporta alla root (La Landing Page)
+    this.router.navigate(['/']); 
   }
+
   ngAfterViewInit(): void {
     this.ctx = this.canvasRef.nativeElement.getContext('2d')!;
     this.resizeCanvas();
@@ -42,7 +43,6 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     if (this.loopInterval) clearInterval(this.loopInterval);
   }
 
-  // Corretto l'errore del parametro qui!
   @HostListener('window:resize')
   onResize() {
     this.resizeCanvas();
@@ -86,41 +86,66 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
         this.hudData = data;
         this.trackedInfo = data.tracked_info;
         
-        // LA SOLUZIONE MAGICA ALL'HUD INVISIBILE! 
-        // Forza Angular ad aggiornare l'HTML istantaneamente.
         this.cdr.detectChanges(); 
-
-        this.drawWorld(data.pixels);
+        
+        // DISEGNA IL MONDO PASSANDO ANCHE I LAGHI
+        this.drawWorld(data.pixels, data.water_zones);
+      }
     };
   }
-  }
+
   // --- MOTORE GRAFICO ---
-  private drawWorld(pixels: any[]) {
+  // --- MOTORE GRAFICO ---
+  // --- MOTORE GRAFICO ULTRA-OTTIMIZZATO ---
+  private drawWorld(pixels: any[], waterZones: any[]) {
     const canvas = this.canvasRef.nativeElement;
     this.ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     const scaleX = canvas.width / this.WORLD_WIDTH;
     const scaleY = canvas.height / this.WORLD_HEIGHT;
 
-    pixels.forEach(p => {
-      let p_type = p[0], p_x = p[1], p_y = p[2];
+    // Dimensione base per piante e creature (10 unità del server)
+    const renderWidth = Math.max(2, 10 * scaleX); 
+    const renderHeight = Math.max(2, 10 * scaleY);
 
-      // LA NUOVA PALETTE COLORI ELEGANTE
-      if (p_type === "Power") this.ctx.fillStyle = "#e11d48"; // Rosso Corallo (Muscoli/Attacco)
-      else if (p_type === "Gastro") this.ctx.fillStyle = "#10b981"; // Verde Smeraldo (Piante/Digestione)
-      else if (p_type === "Neuro") this.ctx.fillStyle = "#6366f1"; // Indaco/Viola (Cervello)
-      else if (p_type === "Biomass") this.ctx.fillStyle = "#cbd5e1"; // Grigio Perla (Detriti morti)
-      else if (p_type === "Egg") this.ctx.fillStyle = "#f59e0b"; // Giallo Ambra (Uova)
-      else this.ctx.fillStyle = "#334155";
+    // --- 1. L'ACQUA ORGANICA (Prestazioni Altissime) ---
+    // 1. DISEGNA I LAGHI (Sotto a tutto)
+    if (waterZones && waterZones.length > 0) {
+      waterZones.forEach(w => {
+        this.ctx.beginPath(); // <-- ALZA IL PENNELLO PER OGNI LAGO!
+        this.ctx.arc(w.x * scaleX, w.y * scaleY, w.radius * scaleX, 0, Math.PI * 2);
+        
+        // Colora l'interno
+        this.ctx.fillStyle = "rgba(14, 165, 233, 0.15)";
+        this.ctx.fill();
 
-      // Aumentiamo leggermente l'opacità della biomassa per farla vedere sul bianco
-      this.ctx.globalAlpha = (p_type === "Biomass") ? 0.6 : 1.0;
-      
-      let renderWidth = Math.max(2, 10 * scaleX); 
-      let renderHeight = Math.max(2, 10 * scaleY);
-      
-      this.ctx.fillRect(p_x * scaleX, p_y * scaleY, renderWidth, renderHeight);
-    });
+        // Disegna il bordo
+        this.ctx.strokeStyle = "rgba(14, 165, 233, 0.4)";
+        this.ctx.lineWidth = 2;
+        this.ctx.setLineDash([5, 15]);
+        this.ctx.stroke();
+      });
+      this.ctx.setLineDash([]); // Resetta il tratteggio alla fine
+    }
+
+    // --- 2. IL VERO DISEGNO DEI PIXEL ---
+    if (pixels) {
+      pixels.forEach(p => {
+        let p_type = p[0], p_x = p[1], p_y = p[2]; 
+
+        // I Colori Scuri perfetti per questo tema
+        if (p_type === "Power") this.ctx.fillStyle = "#ef4444"; // Rosso intenso
+        else if (p_type === "Gastro") this.ctx.fillStyle = "#10b981"; // Verde smeraldo neon
+        else if (p_type === "Neuro") this.ctx.fillStyle = "#3b82f6"; // Blu acceso
+        else if (p_type === "Biomass") this.ctx.fillStyle = "#64748b"; // Grigio polvere (meglio del marrone)
+        else if (p_type === "Egg") this.ctx.fillStyle = "#fbbf24"; // Giallo
+        else this.ctx.fillStyle = "#ffffff";
+
+        this.ctx.globalAlpha = (p_type === "Biomass") ? 0.5 : 1.0;
+        
+        this.ctx.fillRect(p_x * scaleX, p_y * scaleY, renderWidth, renderHeight);
+      });
+    }
     this.ctx.globalAlpha = 1.0;
   }
 

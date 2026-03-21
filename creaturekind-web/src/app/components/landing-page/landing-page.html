@@ -20,8 +20,8 @@
         Il primo ecosistema persistente in cui Reti Neurali mutano, si riproducono e combattono in tempo reale.
       </p>
       <div class="actions fade-up delay-4">
-        <button class="primary-btn" (click)="enterWorld()">
-          Entra nel Mondo
+        <button class="primary-btn" (click)="openAuth('login')">  
+          Accedi
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
           </svg>
@@ -88,7 +88,9 @@
           <li>✔ Tracciamento Neuroni in Diretta</li>
           <li>✔ Dashboard Profilo Esclusiva</li>
         </ul>
-        <button class="primary-btn full-width" (click)="enterWorld()">Accedi Ora</button>
+        <button class="primary-btn full-width" (click)="openAuth('register')">Accedi Ora</button>
+
+
       </div>
 
       <!-- PIANO COMING SOON -->
@@ -112,4 +114,43 @@
     <p>© 2026 CreatureKind. Progetto di Vita Artificiale.</p>
   </footer>
 
+</div>
+<!-- IL POPUP GLASSMORPHISM (Appare solo se showAuthModal è true) -->
+<div class="auth-overlay" *ngIf="showAuthModal">
+  <div class="auth-modal">
+    <button class="close-btn" (click)="closeAuth()">✕</button>
+    
+    <h2>{{ isLoginMode ? 'Accesso Rete Neurale' : 'Nuovo Ricercatore' }}</h2>
+    <p class="error-msg" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+    <form (ngSubmit)="submitAuth()">
+      
+      <!-- Mostra il campo Username SOLO se ci stiamo registrando -->
+      <div class="input-group" *ngIf="!isLoginMode">
+        <label>Nome Utente</label>
+        <input type="text" name="username" [(ngModel)]="authData.username" required placeholder="Es. Architetto_99">
+      </div>
+
+      <div class="input-group">
+        <label>Email</label>
+        <input type="email" name="email" [(ngModel)]="authData.email" required placeholder="iltuonome@email.com">
+      </div>
+
+      <div class="input-group">
+        <label>Password di Sicurezza</label>
+        <input type="password" name="password" [(ngModel)]="authData.password" required placeholder="••••••••">
+      </div>
+
+      <button type="submit" class="primary-btn full-width mt-4">
+        {{ isLoginMode ? 'Inizializza Connessione' : 'Crea Account' }}
+      </button>
+
+    </form>
+
+    <div class="switch-mode">
+      <span *ngIf="isLoginMode">Non hai un account? <a (click)="isLoginMode = false">Registrati</a></span>
+      <span *ngIf="!isLoginMode">Sei già un Ricercatore? <a (click)="isLoginMode = true">Accedi</a></span>
+    </div>
+
+  </div>
 </div>
