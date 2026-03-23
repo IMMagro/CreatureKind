@@ -1,44 +1,42 @@
 <div class="dashboard-container">
   
-  <!-- LA SIDEBAR LATERALE -->
-  <aside class="sidebar">
+  <!-- IL PULSANTE HAMBURGER (Sempre visibile in alto a sinistra) -->
+  <button class="menu-toggle-btn" (click)="toggleSidebar()" [class.shifted]="!isSidebarOpen">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  </button>
+
+  <!-- LA SIDEBAR (Si rimpicciolisce se isSidebarOpen è false) -->
+  <aside class="sidebar" [class.closed]="!isSidebarOpen">
     <div class="brand">
-      <div class="dot"></div> Creature<span>Kind</span>
+      <div class="dot"></div> <span class="hide-on-close">Creature<span class="purple">Kind</span></span>
     </div>
 
-    <!-- Profilo Utente Rapido -->
-    <div class="user-card">
-      <div class="avatar">A</div>
-      <div class="user-info">
-        <h4>{{ user.name }}</h4>
-        <span class="badge pro">{{ user.plan }}</span>
-      </div>
+    <!-- ... (Tutto il resto della sidebar rimane UGUALE!) ... -->
+    <div class="user-card hide-on-close">
+      <!-- ... -->
     </div>
 
-    <!-- Menu di Navigazione -->
     <nav class="nav-menu">
       <a routerLink="/dashboard/profile" routerLinkActive="active" class="nav-item">
-        <span>👤</span> Il Mio Profilo
+        <span class="icon">👤</span> <span class="hide-on-close">Il Mio Profilo</span>
       </a>
-      
       <a routerLink="/dashboard/world" routerLinkActive="active" class="nav-item play-btn">
-        <span>🌍</span> Entra nel Mondo
+        <span class="icon">🌍</span> <span class="hide-on-close">Entra nel Mondo</span>
       </a>
-
-      <!-- Disabilitato per i futuri piani -->
       <a class="nav-item disabled">
-        <span>🧬</span> DNA Editor <span class="lock">🔒</span>
+        <span class="icon">🧬</span> <span class="hide-on-close">DNA Editor</span> <span class="lock hide-on-close">🔒</span>
       </a>
     </nav>
 
     <div class="bottom-nav">
-      <a routerLink="/" class="nav-item logout">
-        <span>🚪</span> Disconnetti
+      <a (click)="logout()" class="nav-item logout" style="cursor: pointer;">
+        <span class="icon">🚪</span> <span class="hide-on-close">Disconnetti</span>
       </a>
     </div>
   </aside>
 
-  <!-- IL CONTENUTO CENTRALE (Qui caricherà il Profilo o il Mondo) -->
   <main class="main-content">
     <router-outlet></router-outlet>
   </main>

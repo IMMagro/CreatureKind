@@ -16,8 +16,6 @@ class Plant:
 
     def update(self, space: ToroidalSpace, water_zones: list):
         if self.is_dead: return None
-        
-        # IL CEROTTO DI SICUREZZA 1
         if not self.pixels:
             self._die()
             return None
@@ -27,22 +25,34 @@ class Plant:
             self._die()
             return None
 
-        # Controlla se la pianta è dentro l'acqua
         in_water = False
+        near_water = False
+        
+        # NUOVA REGOLA: L'acqua ha una "Riva" (bordo) fertilissima, 
+        # ma il centro del lago annega la pianta!
         for w in water_zones:
-            if space.distance(self.pixels[0].x, self.pixels[0].y, w["x"], w["y"]) <= w["radius"]:
-                in_water = True
+            dist = space.distance(self.pixels[0].x, self.pixels[0].y, w["x"], w["y"])
+            if dist <= w["radius"] - 15: 
+                in_water = True # Completamente sommersa!
+                break
+            elif dist <= w["radius"] + 40: 
+                near_water = True # Sulla riva! Beve dalle radici.
                 break
 
-        # L'acqua fa crescere la pianta molto più velocemente!
-        growth_multiplier = 3.0 if in_water else 0.5
-        self.energy += growth_multiplier * len(self.pixels) 
-        self.energy -= 0.2 * len(self.pixels) 
+        if in_water:
+            # Se la spora cade nell'acqua profonda, muore o marcisce velocemente
+            self.energy -= 2.0 * len(self.pixels)
+        else:
+            # Sulla riva cresce 3 volte più veloce. Nel deserto cresce piano.
+            growth_multiplier = 3.0 if near_water else 0.5
+            self.energy += growth_multiplier * len(self.pixels) 
+            self.energy -= 0.2 * len(self.pixels) 
 
         if self.energy <= 0:
             self._die()
             return None
 
+        # ... (il resto della funzione rimane uguale, fino al return)
         if self.energy > 150.0 and len(self.pixels) < self.max_size:
             self._grow_new_cell(space)
             self.energy -= 80.0
@@ -51,7 +61,7 @@ class Plant:
             self.energy -= 200.0 
             return self._spawn_spore(space)
 
-        return None 
+        return None
 
     def _grow_new_cell(self, space: ToroidalSpace):
         parent_cell = random.choice(self.pixels)

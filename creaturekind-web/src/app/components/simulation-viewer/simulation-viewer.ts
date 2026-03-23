@@ -108,24 +108,37 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     const renderWidth = Math.max(2, 10 * scaleX); 
     const renderHeight = Math.max(2, 10 * scaleY);
 
-    // --- 1. L'ACQUA ORGANICA (Prestazioni Altissime) ---
-    // 1. DISEGNA I LAGHI (Sotto a tutto)
+   // --- 1. DISEGNA L'ACQUA SOLIDA (PIXEL BLOCKS PURI) ---
     if (waterZones && waterZones.length > 0) {
-      waterZones.forEach(w => {
-        this.ctx.beginPath(); // <-- ALZA IL PENNELLO PER OGNI LAGO!
-        this.ctx.arc(w.x * scaleX, w.y * scaleY, w.radius * scaleX, 0, Math.PI * 2);
-        
-        // Colora l'interno
-        this.ctx.fillStyle = "rgba(14, 165, 233, 0.15)";
-        this.ctx.fill();
+      // Grandezza del "blocco 8-bit"
+      const waterPixelSize = 15 * scaleX; 
+      
+      // Azzurro fresco e pulito, perfetto sullo sfondo chiaro!
+      this.ctx.fillStyle = "rgba(56, 189, 248, 0.35)"; 
 
-        // Disegna il bordo
-        this.ctx.strokeStyle = "rgba(14, 165, 233, 0.4)";
-        this.ctx.lineWidth = 2;
-        this.ctx.setLineDash([5, 15]);
-        this.ctx.stroke();
+      waterZones.forEach(w => {
+        const startX = (w.x - w.radius) * scaleX;
+        const endX = (w.x + w.radius) * scaleX;
+        const startY = (w.y - w.radius) * scaleY;
+        const endY = (w.y + w.radius) * scaleY;
+
+        for (let x = startX; x < endX; x += waterPixelSize) {
+          for (let y = startY; y < endY; y += waterPixelSize) {
+            
+            const centerX = w.x * scaleX;
+            const centerY = w.y * scaleY;
+            const dx = x - centerX;
+            const dy = y - centerY;
+            
+            // Teorema di Pitagora: è dentro il lago?
+            if (dx * dx + dy * dy <= (w.radius * scaleX) * (w.radius * scaleX)) {
+              // Disegna un cubo solido. Niente frattali, niente bordini neri!
+              // I bordi "a scalinata" si formeranno naturalmente grazie ai quadrati.
+              this.ctx.fillRect(x, y, waterPixelSize, waterPixelSize);
+            }
+          }
+        }
       });
-      this.ctx.setLineDash([]); // Resetta il tratteggio alla fine
     }
 
     // --- 2. IL VERO DISEGNO DEI PIXEL ---
