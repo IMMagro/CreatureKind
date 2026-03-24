@@ -7,13 +7,13 @@ import { ChangeDetectorRef } from '@angular/core';
   selector: 'app-simulation-viewer',
   standalone: true, 
   imports: [CommonModule], 
-  templateUrl: './simulation-viewer.html', // Assicurati che non debba essere .component.html
-  styleUrls: ['./simulation-viewer.scss']  // Assicurati che non debba essere .component.scss
+  templateUrl: './simulation-viewer.html', 
+  styleUrls: ['./simulation-viewer.scss']  
 })
 export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
   
   @ViewChild('worldCanvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
-  
+  @ViewChild('previewCanvas', { static: false }) previewCanvasRef?: ElementRef<HTMLCanvasElement>;
   private ctx!: CanvasRenderingContext2D;
   private ws!: WebSocket;
   private loopInterval: any;
@@ -30,6 +30,10 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
 
   public goHome() {
     this.router.navigate(['/']); 
+  }
+  public closeInspection() {
+    this.trackedCreatureId = null;
+    this.trackedInfo = null;
   }
 
   ngAfterViewInit(): void {
@@ -87,7 +91,9 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
         this.trackedInfo = data.tracked_info;
         
         this.cdr.detectChanges(); 
-        
+        if (this.trackedInfo && this.trackedInfo.morphology) {
+          this.drawCreaturePreview(this.trackedInfo.morphology);
+        }
         // DISEGNA IL MONDO PASSANDO ANCHE I LAGHI
         this.drawWorld(data.pixels, data.water_zones);
       }
@@ -178,5 +184,34 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     else if (event.button === 2) { 
       this.ws.send(JSON.stringify({ action: "spawn_food", x: clickX, y: clickY }));
     }
+  }
+  private drawCreaturePreview(morphology: any[]) {
+    if (!this.previewCanvasRef || !morphology) return;
+    const ctx = this.previewCanvasRef.nativeElement.getContext('2d')!;
+    const width = 200; const height = 200;
+    
+    ctx.clearRect(0, 0, width, height);
+    
+    // Disegniamo la creatura ingrandita al centro del riquadro
+    const pixelSize = 25; // Pixel giganti!
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    morphology.forEach(p => {
+      let p_type = p[0], p_dx = p[1], p_dy = p[2];
+      
+      if (p_type === "Power") ctx.fillStyle = "#ef4444"; 
+      else if (p_type === "Gastro") ctx.fillStyle = "#10b981"; 
+      else if (p_type === "Neuro") ctx.fillStyle = "#3b82f6"; 
+      
+      // Calcoliamo la posizione in base all'offset (dx, dy) rispetto al centro
+      // Diviso 10 perché in Python l'offset è 10,20... lo riduciamo in "griglia"
+      const drawX = centerX + (p_dx / 10) * pixelSize - (pixelSize/2);
+      const drawY = centerY + (p_dy / 10) * pixelSize - (pixelSize/2);
+      
+      ctx.fillRect(drawX, drawY, pixelSize, pixelSize);
+      ctx.strokeStyle = "rgba(255,255,255,0.2)";
+      ctx.strokeRect(drawX, drawY, pixelSize, pixelSize);
+    });
   }
 }

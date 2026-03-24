@@ -1,3 +1,4 @@
+import time 
 import json
 import asyncio
 import random
@@ -154,87 +155,110 @@ class GameEngine:
 
     async def loop(self):
         self.running = True
-        print("🌍 Ecosistema online e in esecuzione!")
+        print("🌍 Motore di Profilazione Attivato! Analisi prestazioni in corso...")
         
-        try: # <--- INIZIO DELLA SCATOLA NERA
-            while self.running:
-                self.tick += 1
+        while self.running:
+            start_tick_time = time.time() # ⏱️ INIZIA IL CRONOMETRO DEL TICK
+            
+            self.tick += 1
+            
+            # --- FASE 1: Decomposizione (Biomassa) ---
+            t1 = time.time()
+            decay_amount = int(len(self.biomass) * 0.002) + 1
+            for _ in range(decay_amount):
+                if self.biomass:
+                    idx = random.randint(0, len(self.biomass) - 1)
+                    self.biomass[idx] = self.biomass[-1] 
+                    self.biomass.pop()
+            time_decay = (time.time() - t1) * 1000 # In millisecondi
+            
+            # --- FASE 2: Aggiornamento Piante ---
+            t2 = time.time()
+            new_spores, surviving_flora = [], []
+            for plant in self.flora:
+                spore = plant.update(self.world, self.water_zones)
+                if spore and len(self.flora) < 300: new_spores.append(spore)
+                if plant.is_dead: self.biomass.extend(plant.pixels)
+                else: surviving_flora.append(plant)
+            self.flora = surviving_flora + new_spores
+            time_plants = (time.time() - t2) * 1000
+            
+            # --- FASE 3: Uova ---
+            t3 = time.time()
+            surviving_eggs = []
+            for egg in self.eggs:
+                hatchling = egg.update()
+                if hatchling: self.creatures.append(hatchling)
+                else: surviving_eggs.append(egg)
+            self.eggs = surviving_eggs
+            time_eggs = (time.time() - t3) * 1000
+            
+            # --- FASE 4: Intelligenza Artificiale (Creature) ---
+            t4 = time.time()
+            surviving_creatures = []
+            for creature in self.creatures:
+                creature.update(self.world, self.flora, self.biomass, self.creatures, self.water_zones)
+                if creature.is_dead: self.biomass.extend(creature.pixels)
+                else: surviving_creatures.append(creature)
+            self.creatures = surviving_creatures
+            time_ai = (time.time() - t4) * 1000
+            
+            # --- FASE 5: Collisioni e Combattimento (O(N^2)) ---
+            t5 = time.time()
+            for i, c1 in enumerate(self.creatures):
+                if c1.is_dead: continue
+                for c2 in self.creatures[i+1:]:
+                    if c2.is_dead: continue
+                    dist = self.world.distance(c1.pixels[0].x, c1.pixels[0].y, c2.pixels[0].x, c2.pixels[0].y)
+                    if dist < 20.0:
+                        if c1.energy > 1200 and c2.energy > 1200 and c1.mating_cooldown == 0 and c2.mating_cooldown == 0:
+                            c1.energy -= 400
+                            c2.energy -= 400
+                            c1.mating_cooldown = 150
+                            c2.mating_cooldown = 150
+                            
+                            self.genome_id_counter += 1
+                            new_genome = neat.DefaultGenome(self.genome_id_counter)
+                            new_genome.configure_crossover(c1.genome, c2.genome, self.neat_config.genome_config)
+                            new_genome.mutate(self.neat_config.genome_config)
+                            
+                            egg_x, egg_y = (c1.pixels[0].x + c2.pixels[0].x) / 2, (c1.pixels[0].y + c2.pixels[0].y) / 2
+                            child_morphology = mutate_morphology(c1.morphology, c2.morphology)
+                            
+                            self.eggs.append(Egg(id=f"egg_{self.genome_id_counter}", x=egg_x, y=egg_y, genome=new_genome, neat_config=self.neat_config, morphology=child_morphology))
+                            break 
+                        else:
+                            if c1.energy > c2.energy: attacker, defender = c1, c2
+                            else: attacker, defender = c2, c1
+                            
+                            damage = 100 + (sum(1 for p in attacker.morphology if p[0] == "Gastro") * 50)
+                            attacker.energy = min(800.0, attacker.energy + damage)
+                            attacker.genome.fitness += 20.0 
+                            defender.energy -= damage
+                            defender.pixels[0].x += random.uniform(-30, 30)
+                            defender.pixels[0].y += random.uniform(-30, 30)
+                            break
+            time_combat = (time.time() - t5) * 1000
+            
+            # --- FASE 6: Estinzione ---
+            if len(self.creatures) == 0 and len(self.eggs) == 0:
+                self.next_generation()
                 
-                # Tolta la virgola di troppo da len(self.biomass)
-                decay_amount = int(len(self.biomass) * 0.002) + 1
-                for _ in range(decay_amount):
-                    if self.biomass:
-                        idx = random.randint(0, len(self.biomass) - 1)
-                        self.biomass[idx] = self.biomass[-1] 
-                        self.biomass.pop()
+            # ⏱️ FINE CRONOMETRO DEL TICK
+            total_tick_time = (time.time() - start_tick_time) * 1000
+            
+            # --- IL SISTEMA DI ALLARME (STAMPA SOLO SE IL SERVER STA LAGGANDO!) ---
+            # Se un tick ci mette più di 16 millisecondi, significa che stiamo scendendo sotto i 60 FPS
+            if total_tick_time > 16.0 and self.tick % 30 == 0: # Stampa solo 1 volta al secondo per non intasare
+                print(f"⚠️ LAG RILEVATO (Tick {self.tick}): Tempo Totale {total_tick_time:.1f}ms")
+                print(f"  ├─ Decomposizione: {time_decay:.1f}ms")
+                print(f"  ├─ Crescita Piante: {time_plants:.1f}ms  (Totale: {len(self.flora)})")
+                print(f"  ├─ Cervelli (AI): {time_ai:.1f}ms  (Totale: {len(self.creatures)})")
+                print(f"  └─ Combattimento: {time_combat:.1f}ms")
+                print(f"  [Biomassa Totale: {len(self.biomass)} pixel]")
+                print("-" * 40)
                 
-                new_spores, surviving_flora = [], []
-                for plant in self.flora:
-                    spore = plant.update(self.world, self.water_zones)
-                    if spore and len(self.flora) < 300: new_spores.append(spore)
-                    if plant.is_dead: self.biomass.extend(plant.pixels)
-                    else: surviving_flora.append(plant)
-                self.flora = surviving_flora + new_spores
-                
-                surviving_eggs = []
-                for egg in self.eggs:
-                    hatchling = egg.update()
-                    if hatchling: self.creatures.append(hatchling)
-                    else: surviving_eggs.append(egg)
-                self.eggs = surviving_eggs
-                
-                surviving_creatures = []
-                for creature in self.creatures:
-                    creature.update(self.world, self.flora, self.biomass, self.creatures, self.water_zones)
-                    if creature.is_dead: self.biomass.extend(creature.pixels)
-                    else: surviving_creatures.append(creature)
-                self.creatures = surviving_creatures
-                
-                for i, c1 in enumerate(self.creatures):
-                    if c1.is_dead: continue
-                    for c2 in self.creatures[i+1:]:
-                        if c2.is_dead: continue
-                        dist = self.world.distance(c1.pixels[0].x, c1.pixels[0].y, c2.pixels[0].x, c2.pixels[0].y)
-                        if dist < 20.0:
-                            if c1.energy > 1200 and c2.energy > 1200 and c1.mating_cooldown == 0 and c2.mating_cooldown == 0:
-                                c1.energy -= 400
-                                c2.energy -= 400
-                                c1.mating_cooldown = 150
-                                c2.mating_cooldown = 150
-                                
-                                self.genome_id_counter += 1
-                                new_genome = neat.DefaultGenome(self.genome_id_counter)
-                                new_genome.configure_crossover(c1.genome, c2.genome, self.neat_config.genome_config)
-                                new_genome.mutate(self.neat_config.genome_config)
-                                
-                                egg_x, egg_y = (c1.pixels[0].x + c2.pixels[0].x) / 2, (c1.pixels[0].y + c2.pixels[0].y) / 2
-                                child_morphology = mutate_morphology(c1.morphology, c2.morphology)
-                                
-                                self.eggs.append(Egg(id=f"egg_{self.genome_id_counter}", x=egg_x, y=egg_y, genome=new_genome, neat_config=self.neat_config, morphology=child_morphology))
-                                break 
-                            else:
-                                if c1.energy > c2.energy: attacker, defender = c1, c2
-                                else: attacker, defender = c2, c1
-                                
-                                damage = 100 + (sum(1 for p in attacker.morphology if p[0] == "Gastro") * 50)
-                                attacker.energy = min(800.0, attacker.energy + damage)
-                                attacker.genome.fitness += 20.0 
-                                defender.energy -= damage
-                                defender.pixels[0].x += random.uniform(-30, 30)
-                                defender.pixels[0].y += random.uniform(-30, 30)
-                                break
-                
-                if len(self.creatures) == 0 and len(self.eggs) == 0:
-                    self.next_generation()
-                    
-                await asyncio.sleep(1 / self.tps)
-                
-        except Exception as e:
-            # SE QUALCOSA ESPLODE, ORA LO VEDREMO STAMPATO IN ROSSO!
-            import traceback
-            print(f"\n❌ CRASH CRITICO NEL MOTORE AL TICK {self.tick} ❌")
-            traceback.print_exc()
-            self.running = False
+            await asyncio.sleep(1 / self.tps)
 
 engine = GameEngine()
 
@@ -361,7 +385,9 @@ async def websocket_endpoint(websocket: WebSocket):
                                 if c.id == tracked_id:
                                     tracked_data = {
                                         "id": c.id, "energy": round(c.energy, 1),
-                                        "fitness": round(c.genome.fitness, 1), "cooldown": c.mating_cooldown
+                                        "hydration": c.hydration,
+                                        "fitness": round(c.genome.fitness, 1), "cooldown": c.mating_cooldown,
+                                        "morphology": c.morphology 
                                     }
                                     break
 

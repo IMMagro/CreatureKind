@@ -6,18 +6,7 @@
     <hr>
     🧬 Gen: <b>{{ hudData.generation }}</b> | ⏳ Tick: {{ hudData.tick }}<br><br>
     🌿 Piante: {{ hudData.plants_count }} | 🪨 Biomassa: {{ hudData.biomass_count }}<br>
-    🦠 Creature: {{ hudData.creatures_count }} | 🥚 Uova: <span class="gold">{{ hudData.eggs_count }}</span>
-
-    <div *ngIf="trackedInfo">
-        <br><br><b>🎯 TRACCIAMENTO ATTIVO</b>
-        <hr>
-        🆔 ID: <span class="blue">{{ trackedInfo.id }}</span><br>
-        ⚡ Energia: {{ trackedInfo.energy }} / 1200<br>
-        🧠 Fitness: {{ trackedInfo.fitness }}<br>
-        💞 Fertilità: <span [class.ready]="trackedInfo.cooldown === 0" [class.cooldown]="trackedInfo.cooldown > 0">
-          {{ trackedInfo.cooldown === 0 ? 'Pronta' : 'In Cooldown' }}
-        </span>
-    </div>
+    🦠 Creature: {{ hudData.creatures_count }} | 🥚 Uova: <span class="gold">{{ hudData.eggs_count }}</span>     
   </div>
   
   <!-- IL NUOVO PULSANTE DI USCITA -->
@@ -26,4 +15,73 @@
   </button>
 
   <canvas #worldCanvas (mousedown)="onCanvasClick($event)" (contextmenu)="$event.preventDefault()"></canvas>
+ <!-- L'HUD BASE (Solo Statistiche Globali) -->
+  <div id="hud" *ngIf="hudData">
+    <b>CreatureKind Evoluzione</b><br>
+    <hr>
+    🧬 Gen: <b>{{ hudData.generation }}</b> | ⏳ Tick: {{ hudData.tick }}<br><br>
+    🌿 Piante: {{ hudData.plants_count }} | 🪨 Biomassa: {{ hudData.biomass_count }}<br>
+    🦠 Creature: {{ hudData.creatures_count }} | 🥚 Uova: <span class="gold">{{ hudData.eggs_count }}</span>
+  </div>
+  
+  <button class="btn-exit" (click)="goHome()">
+    [ TERMINA OSSERVAZIONE ]
+  </button>
+
+  <!-- IL MONDO 3D -->
+  <canvas #worldCanvas (mousedown)="onCanvasClick($event)" (contextmenu)="$event.preventDefault()"></canvas>
+
+  <!-- IL NUOVO MODAL DI ISPEZIONE (Appare solo se abbiamo agganciato qualcuno) -->
+  <div class="inspection-modal-overlay" *ngIf="trackedInfo">
+    <div class="inspection-modal">
+      
+      <!-- Pulsante per chiudere l'ispezione -->
+      <button class="close-btn" (click)="closeInspection()">✕</button>
+      
+      <div class="modal-content">
+        
+        <!-- PARTE SINISTRA: L'Immagine Ingrandita della Creatura -->
+        <div class="creature-preview">
+          <!-- Questo Canvas servirà a disegnare SOLO la creatura gigante -->
+          <canvas #previewCanvas width="200" height="200"></canvas>
+          <div class="status-badge" [class.dead]="trackedInfo.energy <= 0">
+            {{ trackedInfo.energy > 0 ? 'VIVA' : 'DECEDUTA' }}
+          </div>
+        </div>
+
+        <!-- PARTE DESTRA: Le Statistiche Vitali -->
+        <div class="creature-stats">
+          <h2>Soggetto: <span class="blue">{{ trackedInfo.id }}</span></h2>
+          <hr>
+          
+          <div class="stat-grid">
+            <div class="stat-box">
+              <span class="label">⚡ Energia</span>
+              <span class="value">{{ trackedInfo.energy | number:'1.0-0' }}</span>
+              <div class="bar-bg"><div class="bar-fill energy-bar" [style.width.%]="(trackedInfo.energy / 800) * 100"></div></div>
+            </div>
+            
+            <div class="stat-box">
+              <span class="label">💧 Idratazione</span>
+              <span class="value">{{ trackedInfo.hydration | number:'1.0-0' }}</span>
+              <div class="bar-bg"><div class="bar-fill water-bar" [style.width.%]="(trackedInfo.hydration / 1000) * 100"></div></div>
+            </div>
+
+            <div class="stat-box">
+              <span class="label">🧠 Fitness (Intelligenza)</span>
+              <span class="value purple">{{ trackedInfo.fitness | number:'1.1-1' }}</span>
+            </div>
+
+            <div class="stat-box">
+              <span class="label">💞 Stato Riproduttivo</span>
+              <span class="value" [class.ready]="trackedInfo.cooldown === 0" [class.cooldown]="trackedInfo.cooldown > 0">
+                {{ trackedInfo.cooldown === 0 ? 'Pronta all\'Accoppiamento' : 'In Cooldown (' + trackedInfo.cooldown + 't)' }}
+              </span>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
