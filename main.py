@@ -1,4 +1,3 @@
-import time 
 import json
 import asyncio
 import random
@@ -8,6 +7,7 @@ import pickle
 import os
 import math
 import bcrypt
+import copy
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException
@@ -16,55 +16,64 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from physics import ToroidalSpace, Pixel
+from physics import ToroidalSpace, Pixel, SpatialGrid
 from biology import Plant, SmartCreature, Egg
 from models import SessionLocal, User
 
 # ==========================================
-# 🧬 LA BIOLOGIA: MUTAZIONI FISICHE
+# LA BIOLOGIA: MUTAZIONI FISICHE E ACQUA
 # ==========================================
 BASE_MORPHOLOGY = [
-    ("Neuro", 0, 0),     # Cervello al centro
-    ("Gastro", 10, 0),   # Bocca davanti
-    ("Power", -10, 10)   # Muscolo dietro a sinistra
+    ("Neuro", 0, 0),     
+    ("Gastro", 10, 0),   
+    ("Power", -10, 10)   
 ]
 
+def check_water_for_plant(x, y, water_zones, space):
+    is_in_water = False
+    is_near_water = False
+    for w in water_zones:
+        dist = space.distance(x, y, w["x"], w["y"])
+        if dist <= w["radius"] - 15:
+            is_in_water = True
+            break
+        elif dist <= w["radius"] + 80:
+            is_near_water = True
+            break
+    return is_near_water, is_in_water
+
 def mutate_morphology(morph_parent1, morph_parent2):
-    child_morph = list(morph_parent1)
-    if random.random() < 0.15: # 15% di probabilità di mutare forma
+    child_morph = copy.deepcopy(morph_parent1)
+    if random.random() < 0.20:
         mutation_type = random.choice(["grow", "shrink", "change"])
-        
-        if mutation_type == "grow" and len(child_morph) < 15:
+        if mutation_type == "grow" and len(child_morph) < 10:
             anchor = random.choice(child_morph)
-            new_type = random.choice(["Power", "Gastro", "Power"])
+            new_type = random.choice(["Power", "Power", "Power", "Gastro", "Gastro"])
             offset_x, offset_y = random.choice([(10,0), (-10,0), (0,10), (0,-10)])
             child_morph.append((new_type, anchor[1] + offset_x, anchor[2] + offset_y))
-            print("🧬 MUTAZIONE: È nata una creatura con un arto in più!")
-            
+            print("🧬 È NATO UN MUTANTE (Crescita)!")
         elif mutation_type == "shrink" and len(child_morph) > 3:
             idx = random.randint(1, len(child_morph) - 1)
             child_morph.pop(idx)
-            print("🧬 MUTAZIONE: Una creatura ha perso un arto!")
-            
+            print("🧬 È NATO UN MUTANTE (Restringimento)!")
         elif mutation_type == "change" and len(child_morph) > 1:
             idx = random.randint(1, len(child_morph) - 1)
             old_piece = child_morph[idx]
             new_type = "Power" if old_piece[0] == "Gastro" else "Gastro"
             child_morph[idx] = (new_type, old_piece[1], old_piece[2])
             print(f"🧬 MUTAZIONE: Organo trasformato in {new_type}!")
-            
     return child_morph
 
 # ==========================================
-# ⚙️ IL MOTORE DELL'UNIVERSO
+# IL MOTORE DELL'UNIVERSO
 # ==========================================
 class GameEngine:
     def __init__(self):
         self.tick = 0
         self.running = False
-        self.tps = 60 
+        self.tps = 300
         self.world = ToroidalSpace(width=6400, height=3600)
-        
+        self.spatial_grid = SpatialGrid(6400, 3600, 150.0)
         self.flora = []
         self.biomass = [] 
         self.creatures = []
@@ -72,14 +81,18 @@ class GameEngine:
         self.generation = 0 
         self.genome_id_counter = 1000
         
-        # --- GENERAZIONE DEI LAGHI ---
-        self.water_zones = []
-        for _ in range(15): # Creiamo 15 grandi laghi sparsi per il mondo
-            self.water_zones.append({
-                "x": random.uniform(0, 6400),
-                "y": random.uniform(0, 3600),
-                "radius": random.uniform(150, 400) # Raggio tra 150 e 400 pixel
-            })
+        self.water_zones = [
+            {"x": 1000, "y": 800, "radius": 400},
+            {"x": 1400, "y": 900, "radius": 350},
+            {"x": 1600, "y": 1300, "radius": 250},
+            {"x": 3200, "y": 1800, "radius": 600},
+            {"x": 3700, "y": 1900, "radius": 500},
+            {"x": 2800, "y": 2000, "radius": 450},
+            {"x": 5000, "y": 2800, "radius": 200},
+            {"x": 5300, "y": 3000, "radius": 150},
+            {"x": 5100, "y": 3200, "radius": 220},
+            {"x": 5600, "y": 2900, "radius": 180}
+        ]
             
         self.neat_config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                                        neat.DefaultSpeciesSet, neat.DefaultStagnation,
@@ -89,10 +102,13 @@ class GameEngine:
             self.load_state() 
         else:
             self.init_big_bang()
+
     def init_big_bang(self):
         print("💥 Innesco del Big Bang (Generazione 0)...")
         for i in range(150): 
-            self.flora.append(Plant(id=f"plant_{i}", start_x=random.uniform(0, 6400), start_y=random.uniform(0, 3600)))
+            x, y = random.uniform(0, 6400), random.uniform(0, 3600)
+            near_w, in_w = check_water_for_plant(x, y, self.water_zones, self.world)
+            self.flora.append(Plant(id=f"plant_{i}", start_x=x, start_y=y, is_near_water=near_w, is_in_water=in_w))
             
         self.pop = neat.Population(self.neat_config)
         genomes = list(self.pop.population.values())
@@ -128,12 +144,13 @@ class GameEngine:
         self.eggs = []
         
         for i in range(150): 
-            self.flora.append(Plant(id=f"plant_{i}", start_x=random.uniform(0, 6400), start_y=random.uniform(0, 3600)))
+            x, y = random.uniform(0, 6400), random.uniform(0, 3600)
+            near_w, in_w = check_water_for_plant(x, y, self.water_zones, self.world)
+            self.flora.append(Plant(id=f"plant_{i}", start_x=x, start_y=y, is_near_water=near_w, is_in_water=in_w))
             
         genomes = list(self.pop.population.values())
         for i, genome in enumerate(genomes):
-            x = random.uniform(0, 6400)
-            y = random.uniform(0, 3600)
+            x, y = random.uniform(0, 6400), random.uniform(0, 3600)
             self.eggs.append(Egg(id=f"egg_{i}", x=x, y=y, genome=genome, neat_config=self.neat_config, morphology=BASE_MORPHOLOGY))
             
         print(f"✅ Mondo nuovo generato. {len(self.eggs)} Uova della Gen {self.generation} in incubazione.")
@@ -146,8 +163,7 @@ class GameEngine:
         self.generation += 1
         
         for i, (genome_id, genome) in enumerate(self.pop.population.items()):
-            x = random.uniform(0, 6400)
-            y = random.uniform(0, 3600)
+            x, y = random.uniform(0, 6400), random.uniform(0, 3600)
             self.eggs.append(Egg(id=f"egg_{i}", x=x, y=y, genome=genome, neat_config=self.neat_config, morphology=BASE_MORPHOLOGY))        
         
         gc.collect()
@@ -155,110 +171,117 @@ class GameEngine:
 
     async def loop(self):
         self.running = True
-        print("🌍 Motore di Profilazione Attivato! Analisi prestazioni in corso...")
+        print("🌍 Ecosistema online e in esecuzione!")
         
-        while self.running:
-            start_tick_time = time.time() # ⏱️ INIZIA IL CRONOMETRO DEL TICK
-            
-            self.tick += 1
-            
-            # --- FASE 1: Decomposizione (Biomassa) ---
-            t1 = time.time()
-            decay_amount = int(len(self.biomass) * 0.002) + 1
-            for _ in range(decay_amount):
-                if self.biomass:
-                    idx = random.randint(0, len(self.biomass) - 1)
-                    self.biomass[idx] = self.biomass[-1] 
-                    self.biomass.pop()
-            time_decay = (time.time() - t1) * 1000 # In millisecondi
-            
-            # --- FASE 2: Aggiornamento Piante ---
-            t2 = time.time()
-            new_spores, surviving_flora = [], []
-            for plant in self.flora:
-                spore = plant.update(self.world, self.water_zones)
-                if spore and len(self.flora) < 300: new_spores.append(spore)
-                if plant.is_dead: self.biomass.extend(plant.pixels)
-                else: surviving_flora.append(plant)
-            self.flora = surviving_flora + new_spores
-            time_plants = (time.time() - t2) * 1000
-            
-            # --- FASE 3: Uova ---
-            t3 = time.time()
-            surviving_eggs = []
-            for egg in self.eggs:
-                hatchling = egg.update()
-                if hatchling: self.creatures.append(hatchling)
-                else: surviving_eggs.append(egg)
-            self.eggs = surviving_eggs
-            time_eggs = (time.time() - t3) * 1000
-            
-            # --- FASE 4: Intelligenza Artificiale (Creature) ---
-            t4 = time.time()
-            surviving_creatures = []
-            for creature in self.creatures:
-                creature.update(self.world, self.flora, self.biomass, self.creatures, self.water_zones)
-                if creature.is_dead: self.biomass.extend(creature.pixels)
-                else: surviving_creatures.append(creature)
-            self.creatures = surviving_creatures
-            time_ai = (time.time() - t4) * 1000
-            
-            # --- FASE 5: Collisioni e Combattimento (O(N^2)) ---
-            t5 = time.time()
-            for i, c1 in enumerate(self.creatures):
-                if c1.is_dead: continue
-                for c2 in self.creatures[i+1:]:
-                    if c2.is_dead: continue
-                    dist = self.world.distance(c1.pixels[0].x, c1.pixels[0].y, c2.pixels[0].x, c2.pixels[0].y)
-                    if dist < 20.0:
-                        if c1.energy > 1200 and c2.energy > 1200 and c1.mating_cooldown == 0 and c2.mating_cooldown == 0:
-                            c1.energy -= 400
-                            c2.energy -= 400
-                            c1.mating_cooldown = 150
-                            c2.mating_cooldown = 150
-                            
-                            self.genome_id_counter += 1
-                            new_genome = neat.DefaultGenome(self.genome_id_counter)
-                            new_genome.configure_crossover(c1.genome, c2.genome, self.neat_config.genome_config)
-                            new_genome.mutate(self.neat_config.genome_config)
-                            
-                            egg_x, egg_y = (c1.pixels[0].x + c2.pixels[0].x) / 2, (c1.pixels[0].y + c2.pixels[0].y) / 2
-                            child_morphology = mutate_morphology(c1.morphology, c2.morphology)
-                            
-                            self.eggs.append(Egg(id=f"egg_{self.genome_id_counter}", x=egg_x, y=egg_y, genome=new_genome, neat_config=self.neat_config, morphology=child_morphology))
-                            break 
-                        else:
-                            if c1.energy > c2.energy: attacker, defender = c1, c2
-                            else: attacker, defender = c2, c1
-                            
-                            damage = 100 + (sum(1 for p in attacker.morphology if p[0] == "Gastro") * 50)
-                            attacker.energy = min(800.0, attacker.energy + damage)
-                            attacker.genome.fitness += 20.0 
-                            defender.energy -= damage
-                            defender.pixels[0].x += random.uniform(-30, 30)
-                            defender.pixels[0].y += random.uniform(-30, 30)
-                            break
-            time_combat = (time.time() - t5) * 1000
-            
-            # --- FASE 6: Estinzione ---
-            if len(self.creatures) == 0 and len(self.eggs) == 0:
-                self.next_generation()
+        try:
+            while self.running:
+                self.tick += 1
                 
-            # ⏱️ FINE CRONOMETRO DEL TICK
-            total_tick_time = (time.time() - start_tick_time) * 1000
-            
-            # --- IL SISTEMA DI ALLARME (STAMPA SOLO SE IL SERVER STA LAGGANDO!) ---
-            # Se un tick ci mette più di 16 millisecondi, significa che stiamo scendendo sotto i 60 FPS
-            if total_tick_time > 16.0 and self.tick % 30 == 0: # Stampa solo 1 volta al secondo per non intasare
-                print(f"⚠️ LAG RILEVATO (Tick {self.tick}): Tempo Totale {total_tick_time:.1f}ms")
-                print(f"  ├─ Decomposizione: {time_decay:.1f}ms")
-                print(f"  ├─ Crescita Piante: {time_plants:.1f}ms  (Totale: {len(self.flora)})")
-                print(f"  ├─ Cervelli (AI): {time_ai:.1f}ms  (Totale: {len(self.creatures)})")
-                print(f"  └─ Combattimento: {time_combat:.1f}ms")
-                print(f"  [Biomassa Totale: {len(self.biomass)} pixel]")
-                print("-" * 40)
+                # --- 1. SUPER-DECOMPOSIZIONE (LIMITATORE DI RAM) ---
+                # Se la biomassa esplode, i batteri diventano spietati.
+                # A 5000 pixel di biomassa mangiano il 15% di TUTTO ogni decimo di secondo!
+                if len(self.biomass) > 5000:
+                    decay_rate = 0.15 
+                elif len(self.biomass) > 2000:
+                    decay_rate = 0.05
+                else:
+                    decay_rate = 0.005
+                    
+                decay_amount = int(len(self.biomass) * decay_rate) + 1
                 
-            await asyncio.sleep(1 / self.tps)
+                for _ in range(decay_amount):
+                    if self.biomass:
+                        idx = random.randint(0, len(self.biomass) - 1)
+                        self.biomass[idx] = self.biomass[-1] 
+                        self.biomass.pop()
+                        
+                self.spatial_grid.clear()
+                for b_pixel in self.biomass:
+                    self.spatial_grid.insert(b_pixel)
+                
+                # --- 2. AGGIORNAMENTO PIANTE (CAP A 10.000 PIXEL GLOBALI) ---
+                new_spores, surviving_flora = [], []
+                
+                # Contiamo esattamente quanti pixel ci sono (Piante + Biomassa morta)
+                total_plant_pixels = sum(len(p.pixels) for p in self.flora)
+                total_world_pixels = total_plant_pixels + len(self.biomass)
+                
+                for plant in self.flora:
+                    spore = plant.update(self.world)
+                    
+                    # LA REGOLA DI FERRO:
+                    # 1. Non più di 200 piante totali.
+                    # 2. Non più di 5.000 pixel vegetali vivi.
+                    # 3. Non più di 10.000 pixel globali (vivi+morti) sullo schermo!
+                    if spore and len(self.flora) < 200 and total_plant_pixels < 5000 and total_world_pixels < 10000: 
+                        near_w, in_w = check_water_for_plant(spore.pixels[0].x, spore.pixels[0].y, self.water_zones, self.world)
+                        spore.is_near_water = near_w
+                        spore.is_in_water = in_w
+                        new_spores.append(spore)
+                        
+                    if plant.is_dead: self.biomass.extend(plant.pixels)
+                    else: surviving_flora.append(plant)
+                
+                self.flora = surviving_flora + new_spores
+                
+                # --- 3. UOVA ---
+                surviving_eggs = []
+                for egg in self.eggs:
+                    hatchling = egg.update()
+                    if hatchling: self.creatures.append(hatchling)
+                    else: surviving_eggs.append(egg)
+                self.eggs = surviving_eggs
+                
+                surviving_creatures = []
+                for creature in self.creatures:
+                    creature.update(self.world, self.flora, self.biomass, self.creatures, self.water_zones, self.spatial_grid)
+                    if creature.is_dead: self.biomass.extend(creature.pixels)
+                    else: surviving_creatures.append(creature)
+                self.creatures = surviving_creatures
+                
+                for i, c1 in enumerate(self.creatures):
+                    if c1.is_dead: continue
+                    for c2 in self.creatures[i+1:]:
+                        if c2.is_dead: continue
+                        dist = self.world.distance(c1.pixels[0].x, c1.pixels[0].y, c2.pixels[0].x, c2.pixels[0].y)
+                        if dist < 20.0:
+                            if c1.energy > 1200 and c2.energy > 1200 and c1.mating_cooldown == 0 and c2.mating_cooldown == 0:
+                                c1.energy -= 400
+                                c2.energy -= 400
+                                c1.mating_cooldown = 150
+                                c2.mating_cooldown = 150
+                                
+                                self.genome_id_counter += 1
+                                new_genome = neat.DefaultGenome(self.genome_id_counter)
+                                new_genome.configure_crossover(c1.genome, c2.genome, self.neat_config.genome_config)
+                                new_genome.mutate(self.neat_config.genome_config)
+                                
+                                egg_x, egg_y = (c1.pixels[0].x + c2.pixels[0].x) / 2, (c1.pixels[0].y + c2.pixels[0].y) / 2
+                                child_morphology = mutate_morphology(c1.morphology, c2.morphology)
+                                
+                                self.eggs.append(Egg(id=f"egg_{self.genome_id_counter}", x=egg_x, y=egg_y, genome=new_genome, neat_config=self.neat_config, morphology=child_morphology))
+                                break 
+                            else:
+                                if c1.energy > c2.energy: attacker, defender = c1, c2
+                                else: attacker, defender = c2, c1
+                                
+                                damage = 100 + (sum(1 for p in attacker.morphology if p[0] == "Gastro") * 50)
+                                attacker.energy = min(800.0, attacker.energy + damage)
+                                attacker.genome.fitness += 20.0 
+                                defender.energy -= damage
+                                defender.pixels[0].x += random.uniform(-30, 30)
+                                defender.pixels[0].y += random.uniform(-30, 30)
+                                break
+                
+                if len(self.creatures) == 0 and len(self.eggs) == 0:
+                    self.next_generation()
+                    
+                await asyncio.sleep(1 / self.tps)
+        except Exception as e:
+            import traceback
+            print(f"\n❌ CRASH CRITICO NEL MOTORE AL TICK {self.tick} ❌")
+            traceback.print_exc()
+            self.running = False
 
 engine = GameEngine()
 
@@ -309,8 +332,7 @@ class UserRegister(BaseModel):
 @app.post("/api/register")
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user_data.email).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email già registrata")
+    if db_user: raise HTTPException(status_code=400, detail="Email già registrata")
     
     hashed_pw = get_password_hash(user_data.password)
     new_user = User(username=user_data.username, email=user_data.email, hashed_password=hashed_pw, plan="Explorer", dna_credits=500)
@@ -362,7 +384,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     elif command.get("action") == "spawn_food":
                         drop_x, drop_y = command["x"], command["y"]
-                        print(f"⚡ MIRACOLO! Cibo divino in ({int(drop_x)}, {int(drop_y)})")
                         for _ in range(5):
                             offset_x, offset_y = random.uniform(-15, 15), random.uniform(-15, 15)
                             engine.biomass.append(Pixel(id=f"divine_{engine.tick}_{_}", x=drop_x+offset_x, y=drop_y+offset_y, pixel_type="Biomass"))
@@ -374,26 +395,58 @@ async def websocket_endpoint(websocket: WebSocket):
                             for p in plant.pixels: all_pixels.append([p.type, int(p.x), int(p.y)])
                         for p in engine.biomass: all_pixels.append([p.type, int(p.x), int(p.y)])
                         for creature in engine.creatures:
-                            for p in creature.pixels: all_pixels.append([p.type, int(p.x), int(p.y)])
+                            for p in creature.pixels: all_pixels.append([p.type, int(p.x), int(p.y), creature.id])
                         for egg in engine.eggs:
                             for p in egg.pixels: all_pixels.append([p.type, int(p.x), int(p.y)])
 
                         tracked_data = None
                         tracked_id = command.get("track_id")
+                        # --- TRACCIAMENTO E LETTURA DEL CERVELLO ---
+                        tracked_data = None
+                        tracked_id = command.get("track_id")
                         if tracked_id:
                             for c in engine.creatures:
                                 if c.id == tracked_id:
+                                    
+                                    # 1. Estraiamo la struttura della Rete Neurale dal Genoma NEAT!
+                                    brain_nodes = []
+                                    brain_conns = []
+                                    
+                                    # I nodi (Neuroni)
+                                    for node_id, node_gene in c.genome.nodes.items():
+                                        # Passiamo l'ID e il bias (quanto è sensibile il neurone)
+                                        brain_nodes.append({"id": node_id, "bias": node_gene.bias})
+                                        
+                                    # Le connessioni (Sinapsi)
+                                    for conn_key, conn_gene in c.genome.connections.items():
+                                        if conn_gene.enabled: # Mostriamo solo quelle funzionanti!
+                                            # in_node, out_node, peso della connessione (rosso/verde)
+                                            brain_conns.append({
+                                                "in": conn_key[0], 
+                                                "out": conn_key[1], 
+                                                "weight": conn_gene.weight
+                                            })
+
+                                    # 2. Assembliamo il pacchetto dati completo per Angular
                                     tracked_data = {
-                                        "id": c.id, "energy": round(c.energy, 1),
-                                        "hydration": c.hydration,
-                                        "fitness": round(c.genome.fitness, 1), "cooldown": c.mating_cooldown,
-                                        "morphology": c.morphology 
+                                        "id": c.id, 
+                                        "energy": round(c.energy, 1),
+                                        "hydration": round(c.hydration, 1), 
+                                        "age": c.age,
+                                        "fitness": round(c.genome.fitness, 1), 
+                                        "cooldown": c.mating_cooldown,
+                                        "morphology": c.morphology,
+                                        # I nuovi dati del cervello!
+                                        "brain": {
+                                            "nodes": brain_nodes,
+                                            "connections": brain_conns
+                                        }
                                     }
                                     break
 
                         await websocket.send_json({
                             "type": "world_state",
-                            "water_zones": engine.water_zones, # <--- INVIA I LAGHI AL BROWSER!
+                            "water_zones": engine.water_zones,
                             "tick": engine.tick,
                             "generation": engine.generation,
                             "plants_count": len(engine.flora),

@@ -1,12 +1,16 @@
 <div class="simulation-container">
   
   <div id="hud" *ngIf="hudData">
-    <!-- ... [Il contenuto dell'HUD rimane identico] ... -->
     <b>CreatureKind Evoluzione</b><br>
     <hr>
     🧬 Gen: <b>{{ hudData.generation }}</b> | ⏳ Tick: {{ hudData.tick }}<br><br>
     🌿 Piante: {{ hudData.plants_count }} | 🪨 Biomassa: {{ hudData.biomass_count }}<br>
-    🦠 Creature: {{ hudData.creatures_count }} | 🥚 Uova: <span class="gold">{{ hudData.eggs_count }}</span>     
+    🦠 Creature: {{ hudData.creatures_count }} | 🥚 Uova: <span class="gold">{{ hudData.eggs_count }}</span>
+    <br><br>
+    <!-- IL NUOVO RADAR DELLE PRESTAZIONI -->
+    <span style="color: #94a3b8; font-size: 0.85rem;">
+      🖥️ Pixel a schermo (Culling): <b style="color: #38bdf8;">{{ renderedPixelsCount }}</b> / {{ hudData.pixels.length }}
+    </span>
   </div>
   
   <!-- IL NUOVO PULSANTE DI USCITA -->
@@ -50,37 +54,100 @@
         </div>
 
         <!-- PARTE DESTRA: Le Statistiche Vitali -->
-        <div class="creature-stats">
-          <h2>Soggetto: <span class="blue">{{ trackedInfo.id }}</span></h2>
-          <hr>
-          
-          <div class="stat-grid">
-            <div class="stat-box">
-              <span class="label">⚡ Energia</span>
-              <span class="value">{{ trackedInfo.energy | number:'1.0-0' }}</span>
-              <div class="bar-bg"><div class="bar-fill energy-bar" [style.width.%]="(trackedInfo.energy / 800) * 100"></div></div>
-            </div>
-            
-            <div class="stat-box">
-              <span class="label">💧 Idratazione</span>
-              <span class="value">{{ trackedInfo.hydration | number:'1.0-0' }}</span>
-              <div class="bar-bg"><div class="bar-fill water-bar" [style.width.%]="(trackedInfo.hydration / 1000) * 100"></div></div>
-            </div>
+        <!-- IL NUOVO PANNELLO ISPEZIONE (Compatto e Laterale) -->
+  <div class="inspection-panel" *ngIf="trackedInfo">
+    <div class="panel-header">
+      <h2>Soggetto: <span class="blue">{{ trackedInfo.id }}</span></h2>
+      <button class="close-btn" (click)="closeInspection()">✕</button>
+    </div>
+    
+    <div class="panel-body">
+      <!-- Immagine Vera -->
+      <div class="preview-box">
+        <canvas #previewCanvas width="150" height="150"></canvas>
+        <span class="status" [class.dead]="trackedInfo.energy <= 0">
+          {{ trackedInfo.energy > 0 ? 'VIVO' : 'MORTO' }}
+        </span>
+      </div>
 
-            <div class="stat-box">
-              <span class="label">🧠 Fitness (Intelligenza)</span>
-              <span class="value purple">{{ trackedInfo.fitness | number:'1.1-1' }}</span>
-            </div>
-
-            <div class="stat-box">
-              <span class="label">💞 Stato Riproduttivo</span>
-              <span class="value" [class.ready]="trackedInfo.cooldown === 0" [class.cooldown]="trackedInfo.cooldown > 0">
-                {{ trackedInfo.cooldown === 0 ? 'Pronta all\'Accoppiamento' : 'In Cooldown (' + trackedInfo.cooldown + 't)' }}
-              </span>
-            </div>
-          </div>
-          
+      <!-- Statistiche (Barre Piccole) -->
+      <div class="stats-list">
+        <div class="stat-item">
+          <div class="stat-top"><span>⚡ Energia</span> <span>{{ trackedInfo.energy | number:'1.0-0' }}</span></div>
+          <div class="bar-bg"><div class="bar-fill bg-orange" [style.width.%]="(trackedInfo.energy / 1500) * 100"></div></div>
         </div>
+        
+        <div class="stat-item">
+          <div class="stat-top"><span>💧 Idratazione</span> <span>{{ trackedInfo.hydration | number:'1.0-0' }}</span></div>
+          <div class="bar-bg"><div class="bar-fill bg-blue" [style.width.%]="(trackedInfo.hydration / 1000) * 100"></div></div>
+        </div>
+
+        <div class="stat-item">
+          <div class="stat-top"><span>🧠 Fitness</span> <span class="purple">{{ trackedInfo.fitness | number:'1.1-1' }}</span></div>
+        </div>
+
+        <div class="stat-item">
+          <div class="stat-top"><span>⏳ Età</span> <span>{{ trackedInfo.age || 0 }} Tick</span></div>
+        </div>
+
+        <div class="stat-item">
+          <div class="stat-top">
+            <span>💞 Stato</span> 
+            <span [class.ready]="trackedInfo.cooldown === 0" [class.cooldown]="trackedInfo.cooldown > 0">
+              {{ trackedInfo.cooldown === 0 ? 'Fertile' : 'In Cooldown' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- IL NUOVO PANNELLO ISPEZIONE (Compatto e Laterale) -->
+  <div class="inspection-panel" *ngIf="trackedInfo">
+    <div class="panel-header">
+      <h2>Soggetto: <span class="blue">{{ trackedInfo.id }}</span></h2>
+      <button class="close-btn" (click)="closeInspection()">✕</button>
+    </div>
+    
+    <!-- Aggiungiamo uno scroll interno se il pannello diventa troppo alto -->
+    <div class="panel-body" style="max-height: calc(100vh - 120px); overflow-y: auto;">
+      
+      <!-- Immagine Vera -->
+      <div class="preview-box">
+        <canvas #previewCanvas width="150" height="150"></canvas>
+        <span class="status" [class.dead]="trackedInfo.energy <= 0">
+          {{ trackedInfo.energy > 0 ? 'VIVO' : 'MORTO' }}
+        </span>
+      </div>
+
+      <!-- Statistiche Vitali -->
+      <div class="stats-list">
+        <!-- ... [Lascia le statistiche di prima intatte (Energia, Sete, Fitness, Età, Stato)] ... -->
+        <div class="stat-item"><div class="stat-top"><span>⚡ Energia</span> <span>{{ trackedInfo.energy | number:'1.0-0' }}</span></div><div class="bar-bg"><div class="bar-fill bg-orange" [style.width.%]="(trackedInfo.energy / 1500) * 100"></div></div></div>
+        <div class="stat-item"><div class="stat-top"><span>💧 Idratazione</span> <span>{{ trackedInfo.hydration | number:'1.0-0' }}</span></div><div class="bar-bg"><div class="bar-fill bg-blue" [style.width.%]="(trackedInfo.hydration / 1000) * 100"></div></div></div>
+        <div class="stat-item"><div class="stat-top"><span>🧠 Fitness</span> <span class="purple">{{ trackedInfo.fitness | number:'1.1-1' }}</span></div></div>
+        <div class="stat-item"><div class="stat-top"><span>⏳ Età</span> <span>{{ trackedInfo.age || 0 }} Tick</span></div></div>
+        <div class="stat-item"><div class="stat-top"><span>💞 Stato</span> <span [class.ready]="trackedInfo.cooldown === 0" [class.cooldown]="trackedInfo.cooldown > 0">{{ trackedInfo.cooldown === 0 ? 'Fertile' : 'In Cooldown' }}</span></div></div>
+      </div>
+
+      <!-- LA NUOVA SEZIONE: IL CERVELLO (NEAT) -->
+      <div class="brain-section" *ngIf="trackedInfo.brain">
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0 15px 0;">
+        <h3 style="margin: 0 0 10px 0; font-size: 0.9rem; color: #94a3b8; text-transform: uppercase;">Topologia Neurale</h3>
+        
+        <!-- Il Canvas dove disegneremo i neuroni -->
+        <div class="brain-box" style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 10px; border: 1px solid rgba(255,255,255,0.05);">
+          <canvas #brainCanvas width="280" height="250" style="width: 100%; display: block;"></canvas>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 5px;">
+          <span>Sensi (Input)</span>
+          <span>Nascosti</span>
+          <span>Muscoli (Out)</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  </div>
       </div>
     </div>
   </div>
