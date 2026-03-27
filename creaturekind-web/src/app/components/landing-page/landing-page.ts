@@ -1,41 +1,50 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms'; // Serve per i Form
-import { HttpClient, HttpClientModule } from '@angular/common/http'; // Serve per le API
-
+import { FormsModule } from '@angular/forms';
+import { HttpClientModule, HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-landing-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule], // IMPORTATI QUI!
+  imports: [CommonModule, FormsModule, HttpClientModule], 
   templateUrl: './landing-page.html',
   styleUrls: ['./landing-page.scss']
 })
-export class LandingPageComponent {
+export class LandingPageComponent implements OnInit {
   
-  // Variabili per il Popup
   showAuthModal = false;
-  isLoginMode = true; // true = Login, false = Registrazione
+  isLoginMode = true; 
   errorMessage = '';
-
-  // Dati inseriti dall'utente
   authData = { username: '', email: '', password: '' };
+  isLoggedIn = false; // NUOVA VARIABILE
 
   constructor(private router: Router, private http: HttpClient) {}
 
-  // Apre il popup e decide se mostrare Login o Registrazione
+  ngOnInit() {
+    // Al caricamento, controlla se hai già fatto il login in passato!
+    if (localStorage.getItem('user_data')) {
+      this.isLoggedIn = true;
+    }
+  }
+
+  // Funzione intelligente per il bottone gigante in alto
+  handleMainAction() {
+    if (this.isLoggedIn) {
+      this.router.navigate(['/profile']); // Vai diretto al profilo!
+    } else {
+      this.openAuth('register'); // Apri la registrazione
+    }
+  }
+
   openAuth(mode: 'login' | 'register') {
     this.isLoginMode = (mode === 'login');
     this.showAuthModal = true;
     this.errorMessage = '';
   }
 
-  closeAuth() {
-    this.showAuthModal = false;
-  }
+  closeAuth() { this.showAuthModal = false; }
 
-  // Invia i dati a Python!
   submitAuth() {
     this.errorMessage = '';
     const url = this.isLoginMode ? 'http://127.0.0.1:8000/api/login' : 'http://127.0.0.1:8000/api/register';
@@ -43,17 +52,15 @@ export class LandingPageComponent {
     this.http.post<any>(url, this.authData).subscribe({
       next: (response) => {
         if (this.isLoginMode) {
-          // LOGIN SUCCESSO! Salviamo i dati nel browser e andiamo nella Dashboard
           localStorage.setItem('user_data', JSON.stringify(response));
-          this.router.navigate(['/dashboard/profile']);
+          this.router.navigate(['/profile']); // Va dritto al profilo isolato!
         } else {
-          // REGISTRAZIONE SUCCESSO! Passiamo in modalità Login
           this.isLoginMode = true;
           this.errorMessage = "Registrazione completata! Ora effettua l'accesso.";
         }
       },
       error: (err) => {
-        this.errorMessage = err.error.detail || "Errore di connessione al server";
+        this.errorMessage = err.error?.detail || "Errore di connessione al server Python";
       }
     });
   }

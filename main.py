@@ -66,12 +66,12 @@ def mutate_morphology(morph_parent1, morph_parent2):
 
 # ==========================================
 # IL MOTORE DELL'UNIVERSO
-# ==========================================
+# =========================================
 class GameEngine:
     def __init__(self):
         self.tick = 0
         self.running = False
-        self.tps = 300
+        self.tps = 30
         self.world = ToroidalSpace(width=6400, height=3600)
         self.spatial_grid = SpatialGrid(6400, 3600, 150.0)
         self.flora = []
@@ -85,7 +85,7 @@ class GameEngine:
             {"x": 1000, "y": 800, "radius": 400},
             {"x": 1400, "y": 900, "radius": 350},
             {"x": 1600, "y": 1300, "radius": 250},
-            {"x": 3200, "y": 1800, "radius": 600},
+            {"x": 3600, "y": 1800, "radius": 600},
             {"x": 3700, "y": 1900, "radius": 500},
             {"x": 2800, "y": 2000, "radius": 450},
             {"x": 5000, "y": 2800, "radius": 200},
@@ -143,6 +143,7 @@ class GameEngine:
         self.creatures = []
         self.eggs = []
         
+        # CORREZIONE: Calcoliamo l'acqua per le piante rinate!
         for i in range(150): 
             x, y = random.uniform(0, 6400), random.uniform(0, 3600)
             near_w, in_w = check_water_for_plant(x, y, self.water_zones, self.world)
@@ -154,7 +155,7 @@ class GameEngine:
             self.eggs.append(Egg(id=f"egg_{i}", x=x, y=y, genome=genome, neat_config=self.neat_config, morphology=BASE_MORPHOLOGY))
             
         print(f"✅ Mondo nuovo generato. {len(self.eggs)} Uova della Gen {self.generation} in incubazione.")
-
+        
     def next_generation(self):
         print(f"🧬 Estinzione Gen {self.generation}! Calcolo dell'evoluzione in corso...")
         self.pop.species.speciate(self.neat_config, self.pop.population, self.generation)
@@ -173,20 +174,13 @@ class GameEngine:
         self.running = True
         print("🌍 Ecosistema online e in esecuzione!")
         
+        # --- LA SCATOLA NERA INIZIA QUI ---
         try:
             while self.running:
                 self.tick += 1
                 
-                # --- 1. SUPER-DECOMPOSIZIONE (LIMITATORE DI RAM) ---
-                # Se la biomassa esplode, i batteri diventano spietati.
-                # A 5000 pixel di biomassa mangiano il 15% di TUTTO ogni decimo di secondo!
-                if len(self.biomass) > 5000:
-                    decay_rate = 0.15 
-                elif len(self.biomass) > 2000:
-                    decay_rate = 0.05
-                else:
-                    decay_rate = 0.005
-                    
+                # --- 1. SUPER-DECOMPOSIZIONE ---
+                decay_rate = 0.05 if len(self.biomass) > 1000 else 0.005
                 decay_amount = int(len(self.biomass) * decay_rate) + 1
                 
                 for _ in range(decay_amount):
@@ -199,21 +193,14 @@ class GameEngine:
                 for b_pixel in self.biomass:
                     self.spatial_grid.insert(b_pixel)
                 
-                # --- 2. AGGIORNAMENTO PIANTE (CAP A 10.000 PIXEL GLOBALI) ---
+                # --- 2. AGGIORNAMENTO PIANTE ---
                 new_spores, surviving_flora = [], []
-                
-                # Contiamo esattamente quanti pixel ci sono (Piante + Biomassa morta)
                 total_plant_pixels = sum(len(p.pixels) for p in self.flora)
-                total_world_pixels = total_plant_pixels + len(self.biomass)
                 
                 for plant in self.flora:
                     spore = plant.update(self.world)
                     
-                    # LA REGOLA DI FERRO:
-                    # 1. Non più di 200 piante totali.
-                    # 2. Non più di 5.000 pixel vegetali vivi.
-                    # 3. Non più di 10.000 pixel globali (vivi+morti) sullo schermo!
-                    if spore and len(self.flora) < 200 and total_plant_pixels < 5000 and total_world_pixels < 10000: 
+                    if spore and len(self.flora) < 250 and total_plant_pixels < 5000: 
                         near_w, in_w = check_water_for_plant(spore.pixels[0].x, spore.pixels[0].y, self.water_zones, self.world)
                         spore.is_near_water = near_w
                         spore.is_in_water = in_w
@@ -232,6 +219,7 @@ class GameEngine:
                     else: surviving_eggs.append(egg)
                 self.eggs = surviving_eggs
                 
+                # --- 4. CREATURE E INTELLIGENZA ---
                 surviving_creatures = []
                 for creature in self.creatures:
                     creature.update(self.world, self.flora, self.biomass, self.creatures, self.water_zones, self.spatial_grid)
@@ -239,6 +227,7 @@ class GameEngine:
                     else: surviving_creatures.append(creature)
                 self.creatures = surviving_creatures
                 
+                # --- 5. COMBATTIMENTO E ACCOPPIAMENTO ---
                 for i, c1 in enumerate(self.creatures):
                     if c1.is_dead: continue
                     for c2 in self.creatures[i+1:]:
@@ -273,15 +262,24 @@ class GameEngine:
                                 defender.pixels[0].y += random.uniform(-30, 30)
                                 break
                 
-                if len(self.creatures) == 0 and len(self.eggs) == 0:
+                # --- 6. ESTINZIONE ---
+                if len(self.creatures) == 1 and len(self.eggs) == 0:
                     self.next_generation()
                     
+                # --- 7. IL BATTITO DEL CUORE (HEARTBEAT NEL TERMINALE) ---
+                if self.tick % self.tps == 0:
+                    print(f"⏱️ [TICK: {self.tick:06d}] | 🧬 GEN: {self.generation:03d} | 🦠 Creature: {len(self.creatures):03d} | 🥚 Uova: {len(self.eggs):03d} | 🌿 Piante: {len(self.flora):03d} | 🪨 Biomassa: {len(self.biomass):05d}")
+                    
                 await asyncio.sleep(1 / self.tps)
+                
         except Exception as e:
+            # --- LA SCATOLA NERA CATTURA L'ERRORE! ---
             import traceback
             print(f"\n❌ CRASH CRITICO NEL MOTORE AL TICK {self.tick} ❌")
-            traceback.print_exc()
-            self.running = False
+            print("==================================================")
+            traceback.print_exc() # Stampa la riga esatta che ha causato il crash
+            print("==================================================")
+            self.running = False # Ferma il motore ma lascia il server web acceso
 
 engine = GameEngine()
 
@@ -341,6 +339,18 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     db.refresh(new_user)
     return {"message": "Registrazione completata", "id": new_user.id}
 
+class RechargeData(BaseModel):
+    email: str
+
+@app.post("/api/recharge")
+async def recharge_dna(data: RechargeData, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == data.email).first()
+    if user:
+        user.dna_credits += 100
+        db.commit()
+        return {"new_credits": user.dna_credits}
+    raise HTTPException(status_code=404, detail="User not found")
+
 @app.post("/api/login")
 async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_data.email).first()
@@ -382,13 +392,75 @@ async def websocket_endpoint(websocket: WebSocket):
                         if closest:
                             await websocket.send_json({"type": "tracking_id", "id": closest.id})
 
+                    # 2. MIRACOLO DIVINO (COSTA 5 PUNTI DNA!)
+                    # 2. MIRACOLO DIVINO (COSTA 5 PUNTI DNA!)
                     elif command.get("action") == "spawn_food":
-                        drop_x, drop_y = command["x"], command["y"]
-                        for _ in range(5):
-                            offset_x, offset_y = random.uniform(-15, 15), random.uniform(-15, 15)
-                            engine.biomass.append(Pixel(id=f"divine_{engine.tick}_{_}", x=drop_x+offset_x, y=drop_y+offset_y, pixel_type="Biomass"))
-                        engine.flora.append(Plant(id=f"miracle_{engine.tick}", start_x=drop_x, start_y=drop_y))
+                        user_email = command.get("user_email")
+                        if not user_email: continue
                         
+                        db = SessionLocal()
+                        user = db.query(User).filter(User.email == user_email).first()
+                        
+                        if user and user.dna_credits >= 5:
+                            user.dna_credits -= 5
+                            db.commit()
+                            
+                            # SALVIAMO I DATI PRIMA DI CHIUDERE IL DB!
+                            safe_username = user.username
+                            safe_credits = user.dna_credits
+                            db.close()
+                            
+                            drop_x, drop_y = command["x"], command["y"]
+                            print(f"⚡ MIRACOLO di {safe_username}! (-5 DNA). Rimasti: {safe_credits}")
+                            
+                            for _ in range(5):
+                                offset_x, offset_y = random.uniform(-15, 15), random.uniform(-15, 15)
+                                engine.biomass.append(Pixel(id=f"divine_{engine.tick}_{_}", x=drop_x+offset_x, y=drop_y+offset_y, pixel_type="Biomass"))
+                            engine.flora.append(Plant(id=f"miracle_{engine.tick}", start_x=drop_x, start_y=drop_y, is_near_water=False, is_in_water=False))
+                            
+                            await websocket.send_json({"type": "credit_update", "credits": safe_credits})
+                        else:
+                            db.close()
+                            await websocket.send_json({"type": "error", "message": "Punti DNA Insufficienti!"})
+                    # 3. PUNIZIONE DIVINA (DISTRUGGE UNA PIANTA - COSTA 5 PUNTI DNA)
+                    elif command.get("action") == "smite_plant":
+                        user_email = command.get("user_email")
+                        if not user_email: continue
+                        
+                        db = SessionLocal()
+                        user = db.query(User).filter(User.email == user_email).first()
+                        
+                        if user and user.dna_credits >= 5:
+                            # Cerca la pianta più vicina al click (entro 50 pixel)
+                            click_x, click_y = command["x"], command["y"]
+                            target_plant = None
+                            min_dist = 50.0
+                            
+                            for plant in engine.flora:
+                                if not plant.is_dead and plant.pixels:
+                                    dist = engine.world.distance(click_x, click_y, plant.pixels[0].x, plant.pixels[0].y)
+                                    if dist < min_dist:
+                                        min_dist = dist
+                                        target_plant = plant
+                                        
+                            if target_plant:
+                                # Paga e distruggi!
+                                user.dna_credits -= 5
+                                db.commit()
+                                safe_credits = user.dna_credits
+                                db.close()
+                                
+                                # La pianta brucia istantaneamente, lasciando biomassa!
+                                target_plant._die()
+                                print(f"🌩️ PUNIZIONE di {user.username}! (-5 DNA). Rimasti: {safe_credits}")
+                                
+                                await websocket.send_json({"type": "credit_update", "credits": safe_credits})
+                            else:
+                                db.close()
+                                # Non ha colpito nessuna pianta
+                        else:
+                            db.close()
+                            await websocket.send_json({"type": "error", "message": "Punti DNA Insufficienti!"})    
                     elif command.get("action") == "req":
                         all_pixels = []
                         for plant in engine.flora:

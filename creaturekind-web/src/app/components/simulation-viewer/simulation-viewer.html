@@ -12,11 +12,30 @@
       🖥️ Pixel a schermo (Culling): <b style="color: #38bdf8;">{{ renderedPixelsCount }}</b> / {{ hudData.pixels.length }}
     </span>
   </div>
+  <div *ngIf="divineError" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(244,63,94,0.9); color: white; padding: 10px 20px; border-radius: 8px; z-index: 1000; font-weight: bold; box-shadow: 0 0 20px rgba(244,63,94,0.5);">
+    ⚠️ {{ divineError }}
+  </div>
   
   <!-- IL NUOVO PULSANTE DI USCITA -->
   <button class="btn-exit" (click)="goHome()">
     [ TERMINA OSSERVAZIONE ]
   </button>
+  <button class="btn-exit" (click)="goHome()">
+    [ TERMINA OSSERVAZIONE ]
+  </button>
+
+  <!-- LA NUOVA TOOLBAR DIVINA -->
+  <div class="divine-toolbar">
+    <button class="tool-btn" [class.active]="currentTool === 'inspect'" (click)="setTool('inspect')" title="Ispeziona Creatura (Gratis)">
+      🔍
+    </button>
+    <button class="tool-btn" [class.active]="currentTool === 'food'" (click)="setTool('food')" title="Spawna Cibo (Costa 5 DNA)">
+      🍖
+    </button>
+    <button class="tool-btn" [class.active]="currentTool === 'smite'" (click)="setTool('smite')" title="Brucia Pianta (Costa 5 DNA)">
+      🌩️
+    </button>
+  </div>
 
   <canvas #worldCanvas (mousedown)="onCanvasClick($event)" (contextmenu)="$event.preventDefault()"></canvas>
  <!-- L'HUD BASE (Solo Statistiche Globali) -->

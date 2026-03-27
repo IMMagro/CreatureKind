@@ -10,8 +10,9 @@ import { ChangeDetectorRef } from '@angular/core';
   templateUrl: './simulation-viewer.html', 
   styleUrls: ['./simulation-viewer.scss']  
 })
+
 export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
-  
+  public currentTool: 'inspect' | 'food' | 'smite' = 'inspect'; // Di base si ispeziona
   @ViewChild('worldCanvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('previewCanvas', { static: false }) previewCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('brainCanvas', { static: false }) brainCanvasRef?: ElementRef<HTMLCanvasElement>;
@@ -40,6 +41,8 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
   public renderedPixelsCount = 0;
   public trackedInfo: any = null;
   private trackedCreatureId: string | null = null;
+  public loggedUserEmail: string = '';
+  public divineError: string | null = null;
 
   constructor(private router: Router, private cdr: ChangeDetectorRef) {
     // Inizializziamo la telecamera al centro del mondo, con uno zoom che ci fa vedere un bel pezzo
@@ -47,7 +50,9 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     this.camera.y = this.WORLD_HEIGHT / 2;
     this.camera.zoom = 1.0; 
   }
-
+  public setTool(tool: 'inspect' | 'food' | 'smite') {
+    this.currentTool = tool;
+  }
   public goHome() { this.router.navigate(['/']); }
 
   public closeInspection() {
@@ -59,6 +64,11 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     this.ctx = this.canvasRef.nativeElement.getContext('2d')!;
     this.resizeCanvas();
     this.setupCameraControls(); // Inizializza i comandi del mouse
+    // Leggiamo chi siamo dal localStorage
+    const savedUser = localStorage.getItem('user_data');
+    if (savedUser) {
+      this.loggedUserEmail = JSON.parse(savedUser).email;
+    }
     this.connectWebSocket();
   }
 
@@ -123,12 +133,11 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
       this.camera.y = (this.camera.y + this.WORLD_HEIGHT) % this.WORLD_HEIGHT;
 
       this.dragStartX = event.clientX;
+
       this.dragStartY = event.clientY;
       
       // Se stiamo trascinando la visuale, sganciamo l'ispezione della creatura
-      if (this.trackedCreatureId && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
-         this.closeInspection();
-      }
+      
     });
 
     canvas.addEventListener('mouseup', () => this.isDragging = false);
@@ -159,11 +168,17 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
   private screenToWorld(screenX: number, screenY: number) {
     const canvas = this.canvasRef.nativeElement;
     
+    // Distanza dal centro dello schermo divisa per lo zoom
     const dx = (screenX - canvas.width / 2) / this.camera.zoom;
     const dy = (screenY - canvas.height / 2) / this.camera.zoom;
 
-    let worldX = (this.camera.x + dx + this.WORLD_WIDTH) % this.WORLD_WIDTH;
-    let worldY = (this.camera.y + dy + this.WORLD_HEIGHT) % this.WORLD_HEIGHT;
+    // Aggiungiamo la posizione della telecamera e gestiamo l'universo circolare (Wrap-around)
+    let worldX = (this.camera.x + dx) % this.WORLD_WIDTH;
+    let worldY = (this.camera.y + dy) % this.WORLD_HEIGHT;
+
+    // Se le coordinate sono negative, riportale nel range positivo (0-6400)
+    if (worldX < 0) worldX += this.WORLD_WIDTH;
+    if (worldY < 0) worldY += this.WORLD_HEIGHT;
 
     return { x: worldX, y: worldY };
   }
@@ -183,6 +198,25 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     this.ws.onmessage = (event) => {
       if (!event.data.startsWith('{')) return;
       const data = JSON.parse(event.data);
+      // Aggiornamento Crediti istantaneo
+      if (data.type === "credit_update") {
+        // Se Python ci dice che abbiamo speso soldi, aggiorniamo il localStorage segretamente
+        const savedUser = localStorage.getItem('user_data');
+        if (savedUser) {
+          let parsed = JSON.parse(savedUser);
+          parsed.dna_credits = data.credits;
+          localStorage.setItem('user_data', JSON.stringify(parsed));
+        }
+        return;
+      }
+
+      // Errore Divino (Es: Crediti finiti)
+      if (data.type === "error") {
+        this.divineError = data.message;
+        setTimeout(() => this.divineError = null, 3000); // Il messaggio sparisce dopo 3 secondi
+        this.cdr.detectChanges();
+        return;
+      }
 
       if (data.type === "tracking_id") {
         this.trackedCreatureId = data.id;
@@ -347,12 +381,14 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     const centerY = height / 2;
 
     morphology.forEach(p => {
-      // ARRAY CORRETTA INVIATA DA PYTHON: ["Gastro", 10, 0]
+      // p[0] = Tipo (Stringa), p[1] = OffsetX, p[2] = OffsetY
       let p_type = p[0], p_dx = p[1], p_dy = p[2];
       
+      // I COLORI DEVONO ESSERE ESATTI!
       if (p_type === "Power") ctx.fillStyle = "#ef4444"; 
       else if (p_type === "Gastro") ctx.fillStyle = "#10b981"; 
       else if (p_type === "Neuro") ctx.fillStyle = "#3b82f6"; 
+      else ctx.fillStyle = "#ffffff"; // Colore di backup se Python manda roba strana
       
       const drawX = centerX + (p_dx / 10) * pixelSize - (pixelSize/2);
       const drawY = centerY + (p_dy / 10) * pixelSize - (pixelSize/2);
@@ -380,7 +416,13 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     } 
     // Click Destro per il Cibo Divino
     else if (event.button === 2) { 
-      this.ws.send(JSON.stringify({ action: "spawn_food", x: worldPos.x, y: worldPos.y }));
+      // Click Destro: Manda anche l'email per pagare!
+      this.ws.send(JSON.stringify({ 
+        action: "spawn_food", 
+        x: worldPos.x, 
+        y: worldPos.y,
+        user_email: this.loggedUserEmail 
+      }));
     }
   }
   // --- VISUALIZZATORE RETE NEURALE (NEAT) ---

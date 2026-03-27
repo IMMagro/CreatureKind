@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-profile',
@@ -15,7 +16,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   serverStats = { totalGenerations: 0, maxFitnessReached: 0, extinctionEvents: 0, uptime: 'Calcolando...' };
   private statsInterval: any;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private router: Router) {}
 
   ngOnInit(): void {
     // PRENDE I DATI REALI DAL BROWSER (Inviati dal DB Python al login!)
@@ -32,6 +33,15 @@ export class ProfileComponent implements OnInit, OnDestroy {
     this.fetchServerStats();
     this.statsInterval = setInterval(() => { this.fetchServerStats(); }, 2000);
   }
+  // --- NAVIGAZIONE ---
+  enterWorld() {
+    this.router.navigate(['/world']); // Ti lancia dritto a tutto schermo!
+  }
+
+  logout() {
+    localStorage.removeItem('user_data');
+    this.router.navigate(['/']); // Ti riporta alla Landing Page vetrina!
+  }
 
   ngOnDestroy(): void {
     if (this.statsInterval) clearInterval(this.statsInterval);
@@ -46,6 +56,17 @@ export class ProfileComponent implements OnInit, OnDestroy {
         this.serverStats.uptime = stats.uptime;
       },
       error: (err) => console.error("Errore Statistiche:", err)
+    });
+  }
+  rechargeCredits() {
+    this.http.post<any>('http://127.0.0.1:8000/api/recharge', { email: this.user.email }).subscribe({
+      next: (res) => {
+        this.user.credits = res.new_credits;
+        // Aggiorna anche il salvataggio locale
+        const saved = JSON.parse(localStorage.getItem('user_data')!);
+        saved.dna_credits = res.new_credits;
+        localStorage.setItem('user_data', JSON.stringify(saved));
+      }
     });
   }
 }

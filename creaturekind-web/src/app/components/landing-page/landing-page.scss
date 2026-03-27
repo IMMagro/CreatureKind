@@ -187,3 +187,65 @@ footer { text-align: center; padding: 40px; color: #475569; font-size: 0.9rem; b
     a { color: #a855f7; cursor: pointer; text-decoration: underline; font-weight: 600; &:hover { color: #d8b4fe; } }
   }
 }
+/* --- SEZIONI (FEATURE E PRICING) --- */
+.feature-section, .pricing-section {
+  padding: 120px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 10;
+}
+
+.section-header { text-align: center; margin-bottom: 70px; }
+.section-title { font-size: 3.5rem; font-weight: 800; letter-spacing: -1.5px; margin: 0 0 15px 0; }
+.section-desc { font-size: 1.2rem; color: #94a3b8; max-width: 600px; margin: 0 auto; }
+
+/* FEATURE GRID */
+.feature-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px;
+}
+
+.feature-card {
+  background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 24px; padding: 40px; display: flex; gap: 25px;
+  backdrop-filter: blur(20px); transition: transform 0.3s, background 0.3s;
+
+  &:hover { transform: translateY(-5px); background: rgba(30, 41, 59, 0.6); border-color: rgba(255,255,255,0.1); }
+  
+  .icon-box { font-size: 3rem; background: rgba(255,255,255,0.05); width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; border-radius: 20px; flex-shrink: 0; }
+  h3 { font-size: 1.5rem; margin: 0 0 15px 0; color: #f8fafc; }
+  p { color: #94a3b8; line-height: 1.6; margin: 0; font-size: 1.05rem; }
+}
+
+/* PRICING GRID MAGGIORATA */
+.pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; align-items: stretch; }
+
+.price-card {
+  background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 24px; padding: 50px 40px; position: relative; backdrop-filter: blur(20px);
+  display: flex; flex-direction: column; transition: all 0.3s ease;
+  
+  .card-header { margin-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 30px; }
+  h4 { font-size: 1.3rem; color: #94a3b8; margin: 0 0 15px 0; font-weight: 500; }
+  .price { font-size: 3.5rem; font-weight: 900; margin-bottom: 15px; color: #fff; .month { font-size: 1rem; color: #64748b; font-weight: 500; } }
+  .desc { color: #cbd5e1; margin: 0; line-height: 1.5; font-size: 0.95rem; }
+  
+  .features {
+    list-style: none; padding: 0; margin: 0 0 40px 0; flex-grow: 1;
+    li { padding: 12px 0; color: #f8fafc; font-weight: 500; font-size: 0.95rem; }
+    li.muted { color: #64748b; text-decoration: line-through; }
+  }
+
+  &.pro-card {
+    background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(168, 85, 247, 0.6);
+    transform: scale(1.05); box-shadow: 0 30px 60px rgba(168, 85, 247, 0.15);
+    .popular-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: linear-gradient(to right, #a855f7, #ec4899); color: white; font-size: 0.85rem; font-weight: 700; padding: 6px 18px; border-radius: 100px; box-shadow: 0 5px 15px rgba(236, 72, 153, 0.4); }
+  }
+}
+
+footer { text-align: center; padding: 60px 20px; color: #475569; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 50px; font-size: 0.9rem; }
+
+@media (max-width: 992px) {
+  .feature-grid, .pricing-grid { grid-template-columns: 1fr; }
+  .price-card.pro-card { transform: scale(1); }
+}

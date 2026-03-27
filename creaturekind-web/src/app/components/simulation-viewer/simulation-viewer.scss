@@ -124,3 +124,44 @@ canvas {
 .bar-fill { height: 100%; border-radius: 4px; transition: width 0.2s ease-out; }
 .bg-orange { background: linear-gradient(90deg, #f59e0b, #ef4444); }
 .bg-blue { background: linear-gradient(90deg, #38bdf8, #2563eb); }
+/* --- TOOLBAR DIVINA --- */
+.divine-toolbar {
+  position: absolute;
+  top: 80px; /* Sotto al tasto di uscita */
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(10px);
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 20;
+}
+
+.tool-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+  color: white;
+  width: 45px;
+  height: 45px;
+  border-radius: 8px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: 0.2s;
+  display: flex; justify-content: center; align-items: center;
+
+  &:hover { background: rgba(255, 255, 255, 0.1); transform: scale(1.05); }
+  
+  &.active {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: #38bdf8;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+  }
+}
+
+/* Cambia il cursore del mouse in base allo strumento attivo! */
+canvas.tool-inspect { cursor: crosshair; }
+canvas.tool-food { cursor: cell; }
+canvas.tool-smite { cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="red"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>') 12 12, crosshair; }

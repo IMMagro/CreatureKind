@@ -1,80 +1,95 @@
-<div class="profile-container">
-  
-  <!-- Intestazione Profilo -->
-  <header class="profile-header">
-    <div class="header-content">
-      <div class="avatar-large">AS</div>
-      <div class="user-details">
-        <h1>Benvenuto, {{ user.name }}</h1>
-        <p class="email">{{ user.email }} • Utente dal {{ user.joinDate }}</p>
-        <span class="plan-badge">{{ user.plan }}</span>
-      </div>
-    </div>
-    <div class="credits-box">
-      <span class="label">Punti Genoma (DNA)</span>
-      <span class="value">{{ user.credits }}</span>
-      <button class="upgrade-btn">Gestisci Abbonamento</button>
-    </div>
-  </header>
+<div class="profile-layout">
 
-  <hr class="divider">
+  <!-- Sfondo Globale in Stile Xtract -->
+  <div class="glow-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
 
-  <!-- Statistiche del Server -->
-  <div class="stats-section">
-    <h2>Stato del Server: <span class="status-dot"></span> Online</h2>
+  <div class="profile-container">
     
-    <div class="stats-grid">
-      <!-- Card 1 -->
-      <div class="stat-card">
-        <div class="icon">🧬</div>
-        <div class="info">
-          <span class="title">Generazione Attuale</span>
-          <span class="number">{{ serverStats.totalGenerations }}</span>
+    <!-- Intestazione Profilo -->
+    <header class="profile-header fade-up">
+      <div class="header-left">
+        <div class="avatar-large">{{ user.name.charAt(0) | uppercase }}</div>
+        <div class="user-details">
+          <h1>Identità: <span class="gradient-text">{{ user.name }}</span></h1>
+          <p class="email">{{ user.email }} • Connessione Stabilita: {{ user.joinDate }}</p>
+          <span class="plan-badge">{{ user.plan }} Access</span>
         </div>
       </div>
+
+      <div class="header-right">
+        <div class="credits-box">
+          <span class="label">Punti Genoma (DNA)</span>
+          <button class="upgrade-btn" (click)="rechargeCredits()">Ricarica 100 DNA</button>
+          <span class="value">{{ user.credits }}</span>
+        </div>
+        <!-- IL PULSANTE DI LANCIO AL MONDO 3D -->
+        <button class="launch-btn" (click)="enterWorld()">
+          [ AVVIA MOTORE NEURALE ]
+        </button>
+        <button class="logout-btn" (click)="logout()">Disconnetti 🚪</button>
+      </div>
+    </header>
+
+    <!-- Statistiche del Server Globale in Tempo Reale -->
+    <section class="stats-section fade-up delay-1">
+      <h2>Stato Globale dell'Ecosistema <span class="status-dot"></span></h2>
       
-      <!-- Card 2 -->
-      <div class="stat-card">
-        <div class="icon">🧠</div>
-        <div class="info">
-          <span class="title">Max Fitness Storico</span>
-          <span class="number text-green">{{ serverStats.maxFitnessReached }}</span>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="icon">🧬</div>
+          <div class="info">
+            <span class="title">Generazione Era</span>
+            <span class="number">{{ serverStats.totalGenerations }}</span>
+          </div>
         </div>
-      </div>
+        
+        <div class="stat-card">
+          <div class="icon">🧠</div>
+          <div class="info">
+            <span class="title">Picco di Fitness</span>
+            <span class="number text-green">{{ serverStats.maxFitnessReached }}</span>
+          </div>
+        </div>
 
-      <!-- Card 3 -->
-      <div class="stat-card">
-        <div class="icon">💀</div>
-        <div class="info">
-          <span class="title">Eventi di Estinzione</span>
-          <span class="number text-red">{{ serverStats.extinctionEvents }}</span>
+        <div class="stat-card">
+          <div class="icon">💀</div>
+          <div class="info">
+            <span class="title">Eventi di Estinzione</span>
+            <span class="number text-red">{{ serverStats.extinctionEvents }}</span>
+          </div>
         </div>
-      </div>
 
-      <!-- Card 4 -->
-      <div class="stat-card">
-        <div class="icon">⏱️</div>
-        <div class="info">
-          <span class="title">Uptime Simulazione</span>
-          <span class="number">{{ serverStats.uptime }}</span>
+        <div class="stat-card">
+          <div class="icon">⏱️</div>
+          <div class="info">
+            <span class="title">Uptime Server</span>
+            <span class="number">{{ serverStats.uptime }}</span>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
+
+    <!-- I Moduli dell'Account -->
+    <section class="action-section fade-up delay-2">
+      <h2>Moduli Accessibili</h2>
+      <div class="modules-grid">
+        <div class="module-card active" (click)="enterWorld()">
+          <div class="module-icon">🌍</div>
+          <h4>Esplorazione Toroidale</h4>
+          <p>Entra nel simulatore. Ispeziona le creature, osserva i cervelli dal vivo e lancia cibo divino dal cielo.</p>
+        </div>
+        
+        <div class="module-card disabled">
+          <div class="module-icon lock">🔒</div>
+          <h4>Editor del DNA</h4>
+          <p>Spendi Punti Genoma per fabbricare e iniettare nell'ecosistema una specie creata da te. [In Arrivo]</p>
+        </div>
+      </div>
+    </section>
+
   </div>
-
-  <!-- Cronologia Eventi o Azioni Rapide -->
-  <div class="action-section">
-    <h2>Moduli Sperimentali</h2>
-    <div class="modules-grid">
-      <div class="module-card disabled">
-        <h4>Editor DNA (In arrivo)</h4>
-        <p>Modifica manualmente le reti neurali delle uova prima della schiusa.</p>
-      </div>
-      <div class="module-card disabled">
-        <h4>Climates (In arrivo)</h4>
-        <p>Aggiungi zone radioattive o fredde alla mappa toroidale.</p>
-      </div>
-    </div>
-  </div>
-
 </div>

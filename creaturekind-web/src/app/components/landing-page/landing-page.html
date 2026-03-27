@@ -1,107 +1,131 @@
 <div class="xtract-layout">
   
-  <!-- GLI ORB DI SFONDO (Fissi per dare l'effetto parallasse) -->
+  <!-- GLOW DI SFONDO (Gli Orb al Neon) -->
   <div class="glow-bg">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
     <div class="orb orb-3"></div>
   </div>
 
-  <!-- SEZIONE 1: HERO (Schermata Iniziale) -->
+  <!-- SEZIONE 1: HERO (Ingresso) -->
   <section class="hero-section">
     <div class="hero-content">
       <div class="badge fade-up delay-1">
         <span class="dot"></span> Neural Engine V2.0 Online
       </div>
       <h1 class="title fade-up delay-2">
-        Creature<br><span class="gradient-text">Kind.</span>
+        La Vita, <br><span class="gradient-text">Sintetizzata.</span>
       </h1>
       <p class="subtitle fade-up delay-3">
-        Il primo ecosistema persistente in cui Reti Neurali mutano, si riproducono e combattono in tempo reale.
+        Non è un gioco pre-programmato. È un ecosistema persistente in cui organismi neurali nascono, mutano e competono per le risorse naturali in tempo reale.
       </p>
       <div class="actions fade-up delay-4">
-        <button class="primary-btn" (click)="openAuth('login')">  
-          Accedi
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-          </svg>
+        <!-- Se non siamo loggati, apre il form. Se siamo loggati, va al profilo! -->
+        <button class="primary-btn" (click)="handleMainAction()">
+          {{ isLoggedIn ? 'Vai al tuo Laboratorio' : 'Inizia l\'Esperimento' }}
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
         </button>
       </div>
     </div>
   </section>
 
-  <!-- SEZIONE 2: CARD ANIMATE (Curiosità) -->
-  <section class="info-section">
-    <h2 class="section-title">Natura Sintetica</h2>
-    <p class="section-desc">Regole biologiche calcolate a 60 Frame al Secondo.</p>
-    
-    <div class="cards-grid">
-      <!-- Card 1 -->
-      <div class="glass-card">
+  <!-- SEZIONE 2: LE FEATURE (Cosa lo rende unico) -->
+  <section class="feature-section">
+    <div class="section-header fade-up">
+      <h2 class="section-title">Evoluzione a 60 Frame al Secondo</h2>
+      <p class="section-desc">Ogni creatura elabora decisioni attraverso una Rete Neurale Ricorrente (CTRNN) simulata dal server.</p>
+    </div>
+
+    <div class="feature-grid">
+      <!-- Feature 1 -->
+      <div class="feature-card fade-up delay-1">
         <div class="icon-box">🧠</div>
-        <h3>Neuro-Evoluzione (NEAT)</h3>
-        <p>I cervelli non sono programmati. Partono da zero e crescono nuovi neuroni di generazione in generazione tramite mutazioni casuali.</p>
+        <div class="feature-content">
+          <h3>Memoria a Breve Termine</h3>
+          <p>Le creature ricordano la posizione dell'acqua e del cibo anche quando escono dal campo visivo, permettendo l'esplorazione geografica intelligente.</p>
+        </div>
       </div>
-      <!-- Card 2 -->
-      <div class="glass-card">
+      <!-- Feature 2 -->
+      <div class="feature-card fade-up delay-2">
+        <div class="icon-box">👁️</div>
+        <div class="feature-content">
+          <h3>Visione a Raggi (Raycasting)</h3>
+          <p>Gli organismi possiedono 5 recettori ottici vettoriali. Possono vedere ostacoli, nascondersi e aggirarsi a vicenda sfruttando i punti ciechi.</p>
+        </div>
+      </div>
+      <!-- Feature 3 -->
+      <div class="feature-card fade-up delay-3">
         <div class="icon-box">🧬</div>
-        <h3>Riproduzione Dinamica</h3>
-        <p>Le creature che riescono a nutrirsi depongono uova fisiche. Il DNA dei figli è un incrocio (crossover) delle topologie dei genitori.</p>
+        <div class="feature-content">
+          <h3>Morfologia Dinamica</h3>
+          <p>L'evoluzione non cambia solo la mente, ma anche il corpo. Ad ogni generazione (uovo), c'è il 20% di probabilità di sviluppare nuovi muscoli o bocche.</p>
+        </div>
       </div>
-      <!-- Card 3 -->
-      <div class="glass-card">
+      <!-- Feature 4 -->
+      <div class="feature-card fade-up delay-4">
         <div class="icon-box">🌍</div>
-        <h3>Spazio Toroidale</h3>
-        <p>Un universo infinito senza confini. Attraversando il confine nord, si riappare a sud. Le distanze visive curvano con lo spazio.</p>
+        <div class="feature-content">
+          <h3>Ecosistema Reale</h3>
+          <p>Le piante crescono rigogliose solo vicino all'acqua, i batteri scompongono i cadaveri e il ciclo dell'energia è regolato dalle leggi della termodinamica.</p>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- SEZIONE 3: PIANI E ACCESSO -->
+  <!-- SEZIONE 3: I PIANI DI ABBONAMENTO -->
   <section class="pricing-section">
-    <h2 class="section-title">Scegli il tuo Livello di Accesso</h2>
-    
+    <div class="section-header fade-up">
+      <h2 class="section-title">Licenze di Ricerca</h2>
+      <p class="section-desc">Scegli il tuo livello di interazione con il motore neurale.</p>
+    </div>
+
     <div class="pricing-grid">
       
       <!-- PIANO FREE -->
-      <div class="price-card">
-        <h4>Observer</h4>
-        <div class="price">Free</div>
-        <p class="desc">Per chi vuole solo guardare l'evoluzione fare il suo corso.</p>
+      <div class="price-card fade-up delay-1">
+        <div class="card-header">
+          <h4>Observer</h4>
+          <div class="price">Free</div>
+          <p class="desc">Per gli amanti della natura digitale.</p>
+        </div>
         <ul class="features">
-          <li>✔ Accesso in Sola Lettura</li>
-          <li>✔ Ispezione Creature Base</li>
-          <li>✖ Nessuna Interazione Divina</li>
+          <li>✔ Accesso al Mondo Pubblico</li>
+          <li>✔ Telecamera Libera (Zoom/Pan)</li>
+          <li>✔ Ispezione Dati Vitali</li>
+          <li class="muted">✖ Nessuna Interazione Fisica</li>
+          <li class="muted">✖ Niente Punti DNA</li>
         </ul>
-        <button class="secondary-btn">Crea Account</button>
+        <button class="secondary-btn" (click)="openAuth('register')">Registrati Gratis</button>
       </div>
 
       <!-- PIANO EXPLORER (In Evidenza) -->
-      <div class="price-card pro-card">
-        <div class="popular-badge">Most Popular</div>
-        <h4>Explorer</h4>
-        <div class="price">€4<span class="month">/mo</span></div>
-        <p class="desc">Per i veri Architetti dell'ALife. Prendi il controllo.</p>
+      <div class="price-card pro-card fade-up delay-2">
+        <div class="popular-badge">Consigliato</div>
+        <div class="card-header">
+          <h4>Explorer</h4>
+          <div class="price">€4<span class="month">/mese</span></div>
+          <p class="desc">Prendi il controllo dell'evoluzione.</p>
+        </div>
         <ul class="features">
-          <li>✔ Accesso Totale</li>
-          <li>✔ Spawn Cibo Divino (Click Destro)</li>
-          <li>✔ Tracciamento Neuroni in Diretta</li>
-          <li>✔ Dashboard Profilo Esclusiva</li>
+          <li>✔ Visualizzatore Neurale (Live)</li>
+          <li>✔ Cibo Divino (Interazione Mouse)</li>
+          <li>✔ 500 Punti DNA Iniziali</li>
+          <li>✔ Editor Genetico (In Arrivo)</li>
         </ul>
-        <button class="primary-btn full-width" (click)="openAuth('register')">Accedi Ora</button>
-
-
+        <button class="primary-btn full-width" (click)="openAuth('register')">Diventa Explorer</button>
       </div>
 
-      <!-- PIANO COMING SOON -->
-      <div class="price-card disabled-card">
-        <h4>Creator</h4>
-        <div class="price">TBA</div>
-        <p class="desc">Crea i tuoi mondi privati e isolati.</p>
+      <!-- PIANO CREATOR -->
+      <div class="price-card fade-up delay-3 disabled-card">
+        <div class="card-header">
+          <h4>Architect</h4>
+          <div class="price">TBA</div>
+          <p class="desc">Ingegneria biologica assoluta.</p>
+        </div>
         <ul class="features">
-          <li>Sandbox Privato</li>
-          <li>Modifica Genetica Custom</li>
-          <li>Cloud Save Personale</li>
+          <li>✔ Server Privato Isolato</li>
+          <li>✔ Customizzazione Regole Fisiche</li>
+          <li>✔ Caricamento Modelli 3D</li>
         </ul>
         <button class="secondary-btn disabled">Coming Soon</button>
       </div>
@@ -109,48 +133,40 @@
     </div>
   </section>
 
-  <!-- FOOTER -->
   <footer>
-    <p>© 2026 CreatureKind. Progetto di Vita Artificiale.</p>
+    <p>CreatureKind © 2026. L'Intelligenza Artificiale non è mai stata così viva.</p>
   </footer>
 
 </div>
-<!-- IL POPUP GLASSMORPHISM (Appare solo se showAuthModal è true) -->
+
+<!-- IL POPUP DI LOGIN/REGISTRAZIONE (Resta uguale) -->
 <div class="auth-overlay" *ngIf="showAuthModal">
   <div class="auth-modal">
     <button class="close-btn" (click)="closeAuth()">✕</button>
-    
     <h2>{{ isLoginMode ? 'Accesso Rete Neurale' : 'Nuovo Ricercatore' }}</h2>
     <p class="error-msg" *ngIf="errorMessage">{{ errorMessage }}</p>
 
     <form (ngSubmit)="submitAuth()">
-      
-      <!-- Mostra il campo Username SOLO se ci stiamo registrando -->
       <div class="input-group" *ngIf="!isLoginMode">
         <label>Nome Utente</label>
         <input type="text" name="username" [(ngModel)]="authData.username" required placeholder="Es. Architetto_99">
       </div>
-
       <div class="input-group">
         <label>Email</label>
         <input type="email" name="email" [(ngModel)]="authData.email" required placeholder="iltuonome@email.com">
       </div>
-
       <div class="input-group">
         <label>Password di Sicurezza</label>
         <input type="password" name="password" [(ngModel)]="authData.password" required placeholder="••••••••">
       </div>
-
       <button type="submit" class="primary-btn full-width mt-4">
         {{ isLoginMode ? 'Inizializza Connessione' : 'Crea Account' }}
       </button>
-
     </form>
 
     <div class="switch-mode">
       <span *ngIf="isLoginMode">Non hai un account? <a (click)="isLoginMode = false">Registrati</a></span>
       <span *ngIf="!isLoginMode">Sei già un Ricercatore? <a (click)="isLoginMode = true">Accedi</a></span>
     </div>
-
   </div>
 </div>
