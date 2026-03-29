@@ -1,7 +1,6 @@
 import neat
 import math
 import random
-# IMPORT CORRETTI E COMPLETI
 from physics import Pixel, ToroidalSpace, SpatialGrid, line_intersects_circle
 
 class Plant:
@@ -10,7 +9,7 @@ class Plant:
         self.energy = 100.0
         self.is_dead = False
         self.pixels = [Pixel(id=f"{self.id}_0", x=start_x, y=start_y, pixel_type="Gastro")]
-        self.max_size = random.randint(50, 150) 
+        self.max_size = random.randint(10, 30) 
         self.is_near_water = is_near_water
         self.is_in_water = is_in_water
 
@@ -90,7 +89,6 @@ class SmartCreature:
         self.genome = genome
         self.genome.fitness = 0.0 
         
-        # CERVELLO RICORRENTE (Memoria)
         self.brain = neat.nn.RecurrentNetwork.create(genome, neat_config)
         self.morphology = morphology 
         
@@ -107,6 +105,11 @@ class SmartCreature:
         
         self.vision_radius = 600.0 
         self.angle = random.uniform(0, 2 * math.pi) 
+
+        # Memoria visiva per la "Vista Pigra"
+        self.eye_food = [0.0] * 5
+        self.eye_creat = [0.0] * 5
+        self.eye_water = [0.0] * 5
 
     def update(self, space: ToroidalSpace, flora_list: list, biomass_list: list, all_creatures: list, water_zones: list, spatial_grid: SpatialGrid):
         if self.is_dead: return
@@ -127,75 +130,100 @@ class SmartCreature:
 
         head_x, head_y = self.pixels[0].x, self.pixels[0].y
 
-        eye_angles = [-math.pi/4, -math.pi/9, 0, math.pi/9, math.pi/4]
-        eye_food = [0.0] * 5
-        eye_creat = [0.0] * 5
-        eye_water = [0.0] * 5
-
-        rays = []
-        for offset_angle in eye_angles:
-            ray_angle = self.angle + offset_angle
-            ray_end_x = head_x + math.cos(ray_angle) * self.vision_radius
-            ray_end_y = head_y + math.sin(ray_angle) * self.vision_radius
-            rays.append((ray_end_x, ray_end_y))
-
-        in_water = False
-        for w in water_zones:
-            if space.distance(head_x, head_y, w["x"], w["y"]) <= w["radius"]:
-                in_water = True
-            for i, (end_x, end_y) in enumerate(rays):
-                hit, dist = line_intersects_circle(head_x, head_y, end_x, end_y, w["x"], w["y"], w["radius"], space)
-                if hit:
-                    signal = max(0.0, 1.0 - (dist / self.vision_radius))
-                    if signal > eye_water[i]: eye_water[i] = signal
-
-        if in_water:
-            self.hydration = min(1000.0, self.hydration + 50.0)
-            self.genome.fitness += 1.0 
-
+        # ========================================================
+        # FASE 1: IL MORSO (CALCOLATO SEMPRE, MA SOLO A CORTA DISTANZA)
+        # ========================================================
         closest_food, min_food_dist, target_list = None, 20.0, None
-        nearby_biomass = spatial_grid.get_nearby(head_x, head_y, self.vision_radius)
         
+        # Cerca Biomassa vicinissima (Raggio 20)
+        nearby_biomass = spatial_grid.get_nearby(head_x, head_y, 20.0)
         for b_pixel in nearby_biomass:
             dist = space.distance(head_x, head_y, b_pixel.x, b_pixel.y)
             if dist < min_food_dist: min_food_dist, closest_food, target_list = dist, b_pixel, biomass_list
-            for i, (end_x, end_y) in enumerate(rays):
-                hit, hit_dist = line_intersects_circle(head_x, head_y, end_x, end_y, b_pixel.x, b_pixel.y, 15.0, space)
-                if hit:
-                    signal = max(0.0, 1.0 - (hit_dist / self.vision_radius))
-                    if signal > eye_food[i]: eye_food[i] = signal
 
+        # Cerca Foglie di Pianta vicinissime (Solo se il tronco dell'albero è a max 150px)
         for plant in flora_list:
             if plant.is_dead or not plant.pixels: continue
-            if space.distance(head_x, head_y, plant.pixels[0].x, plant.pixels[0].y) < self.vision_radius + 100:
+            if space.distance(head_x, head_y, plant.pixels[0].x, plant.pixels[0].y) < 150.0:
                 for p_pixel in plant.pixels:
                     if p_pixel.type == "Wood": continue
                     dist = space.distance(head_x, head_y, p_pixel.x, p_pixel.y)
                     if dist < min_food_dist: min_food_dist, closest_food, target_list = dist, p_pixel, plant.pixels
-                    for i, (end_x, end_y) in enumerate(rays):
-                        hit, hit_dist = line_intersects_circle(head_x, head_y, end_x, end_y, p_pixel.x, p_pixel.y, 15.0, space)
-                        if hit:
-                            signal = max(0.0, 1.0 - (hit_dist / self.vision_radius))
-                            if signal > eye_food[i]: eye_food[i] = signal
-
-        for other in all_creatures:
-            if other.id == self.id or other.is_dead: continue
-            for i, (end_x, end_y) in enumerate(rays):
-                hit, hit_dist = line_intersects_circle(head_x, head_y, end_x, end_y, other.pixels[0].x, other.pixels[0].y, 25.0, space)
-                if hit:
-                    signal = max(0.0, 1.0 - (hit_dist / self.vision_radius))
-                    if signal > eye_creat[i]: eye_creat[i] = signal
 
         if closest_food and min_food_dist < 15.0:
             self.energy = min(1500.0, self.energy + self.digestion_power)
             self.genome.fitness += 15.0 
             target_list.remove(closest_food)
 
+        # Controlla se sta fisicamente dentro l'acqua per bere
+        in_water = False
+        for w in water_zones:
+            if space.distance(head_x, head_y, w["x"], w["y"]) <= w["radius"]:
+                in_water = True
+                self.hydration = min(1000.0, self.hydration + 50.0)
+                self.genome.fitness += 1.0 
+                break
+
+        # ========================================================
+        # FASE 2: LA VISTA (CALCOLATA SOLO OGNI 3 TICK PER RISPARMIARE CPU!)
+        # ========================================================
+        if self.age % 3 == 0:
+            self.eye_food = [0.0] * 5
+            self.eye_creat = [0.0] * 5
+            self.eye_water = [0.0] * 5
+
+            eye_angles = [-math.pi/4, -math.pi/9, 0, math.pi/9, math.pi/4]
+            rays = []
+            for offset_angle in eye_angles:
+                ray_angle = self.angle + offset_angle
+                ray_end_x = head_x + math.cos(ray_angle) * self.vision_radius
+                ray_end_y = head_y + math.sin(ray_angle) * self.vision_radius
+                rays.append((ray_end_x, ray_end_y))
+
+            # Guarda l'acqua
+            for w in water_zones:
+                for i, (end_x, end_y) in enumerate(rays):
+                    hit, dist = line_intersects_circle(head_x, head_y, end_x, end_y, w["x"], w["y"], w["radius"], space)
+                    if hit:
+                        signal = max(0.0, 1.0 - (dist / self.vision_radius))
+                        if signal > self.eye_water[i]: self.eye_water[i] = signal
+
+            # Guarda la Biomassa (usando la Grid)
+            nearby_vision_biomass = spatial_grid.get_nearby(head_x, head_y, self.vision_radius)
+            for b_pixel in nearby_vision_biomass:
+                for i, (end_x, end_y) in enumerate(rays):
+                    hit, hit_dist = line_intersects_circle(head_x, head_y, end_x, end_y, b_pixel.x, b_pixel.y, 15.0, space)
+                    if hit:
+                        signal = max(0.0, 1.0 - (hit_dist / self.vision_radius))
+                        if signal > self.eye_food[i]: self.eye_food[i] = signal
+
+            # Guarda il TRONCO delle piante (Ignora le foglie per non laggare!)
+            for plant in flora_list:
+                if plant.is_dead or not plant.pixels: continue
+                if space.distance(head_x, head_y, plant.pixels[0].x, plant.pixels[0].y) < self.vision_radius + 50:
+                    for i, (end_x, end_y) in enumerate(rays):
+                        hit, hit_dist = line_intersects_circle(head_x, head_y, end_x, end_y, plant.pixels[0].x, plant.pixels[0].y, 30.0, space)
+                        if hit:
+                            signal = max(0.0, 1.0 - (hit_dist / self.vision_radius))
+                            if signal > self.eye_food[i]: self.eye_food[i] = signal
+
+            # Guarda le altre creature
+            for other in all_creatures:
+                if other.id == self.id or other.is_dead: continue
+                if space.distance(head_x, head_y, other.pixels[0].x, other.pixels[0].y) < self.vision_radius:
+                    for i, (end_x, end_y) in enumerate(rays):
+                        hit, hit_dist = line_intersects_circle(head_x, head_y, end_x, end_y, other.pixels[0].x, other.pixels[0].y, 25.0, space)
+                        if hit:
+                            signal = max(0.0, 1.0 - (hit_dist / self.vision_radius))
+                            if signal > self.eye_creat[i]: self.eye_creat[i] = signal
+
+        # ========================================================
+        # FASE 3: IL CERVELLO
+        # ========================================================
         input_energy = self.energy / 800.0 
         input_hydration = self.hydration / 1000.0
         
-        # 17 INPUTS: I MIEI 5 OCCHI E LE MIE STATISTICHE!
-        brain_inputs = eye_food + eye_creat + eye_water + [input_energy, input_hydration]
+        brain_inputs = self.eye_food + self.eye_creat + self.eye_water + [input_energy, input_hydration]
         outputs = self.brain.activate(brain_inputs)
         
         turn_signal, speed_signal = outputs[0], outputs[1] 

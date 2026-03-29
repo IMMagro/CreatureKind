@@ -249,3 +249,164 @@ footer { text-align: center; padding: 60px 20px; color: #475569; border-top: 1px
   .feature-grid, .pricing-grid { grid-template-columns: 1fr; }
   .price-card.pro-card { transform: scale(1); }
 }
+/* --- SEZIONE BESTIARIO (LORE & UPDATES) --- */
+.updates-section {
+  padding: 100px 20px; max-width: 1200px; margin: 0 auto; position: relative; z-index: 10;
+}
+
+.bestiary-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px;
+}
+
+.entity-card {
+  background: rgba(15, 23, 42, 0.5); border-radius: 24px; padding: 40px;
+  backdrop-filter: blur(15px); display: flex; flex-direction: column; gap: 30px;
+  transition: transform 0.3s;
+  &:hover { transform: translateY(-5px); }
+  
+  /* Stile NATIVO (Verde/Sicuro) */
+  &.native-card {
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    box-shadow: 0 20px 40px rgba(16, 185, 129, 0.05);
+    .status-tag { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.5); }
+    .text-emerald { color: #34d399; text-shadow: 0 0 15px rgba(52, 211, 153, 0.5); font-weight: 800; }
+  }
+
+  /* Stile INVASIVO (Rosso/Pericolo) */
+  &.invasive-card {
+    border: 1px solid rgba(244, 63, 94, 0.3);
+    box-shadow: 0 20px 40px rgba(244, 63, 94, 0.1);
+    background: rgba(30, 10, 15, 0.5); /* Leggermente più rosso scuro */
+    .status-tag { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.5); }
+    .text-rose { color: #fb7185; text-shadow: 0 0 15px rgba(251, 113, 133, 0.5); font-weight: 800; }
+  }
+}
+
+.card-header {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 15px;
+  h3 { font-size: 2rem; margin: 0; color: #fff; }
+}
+
+.status-tag {
+  padding: 6px 14px; border-radius: 100px; font-size: 0.75rem; font-weight: 700; letter-spacing: 1px;
+}
+.pulse-green { animation: pulseGreen 2s infinite; }
+.pulse-red { animation: pulseRed 2s infinite; }
+@keyframes pulseGreen { 0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 50% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } }
+@keyframes pulseRed { 0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); } 50% { box-shadow: 0 0 0 10px rgba(244, 63, 94, 0); } }
+
+/* GLI OLOGRAMMI 3D */
+.hologram-box {
+  width: 100%; height: 250px; background: rgba(0, 0, 0, 0.5); border-radius: 16px;
+  position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden;
+  
+  &.safe-holo { border: 1px solid rgba(16, 185, 129, 0.3); .scan-line { background: rgba(16, 185, 129, 0.5); box-shadow: 0 0 15px #10b981; } .target-corners { border-top-color: #10b981; border-left-color: #10b981; &::after { border-bottom-color: #10b981; border-right-color: #10b981; } } }
+  &.danger-holo { border: 1px solid rgba(244, 63, 94, 0.3); .scan-line { background: rgba(244, 63, 94, 0.5); box-shadow: 0 0 15px #f43f5e; } .target-corners { border-top-color: #f43f5e; border-left-color: #f43f5e; &::after { border-bottom-color: #f43f5e; border-right-color: #f43f5e; } } }
+
+  .scan-line { position: absolute; top: 0; left: 0; width: 100%; height: 5px; animation: scan 3s linear infinite; z-index: 5; }
+  @keyframes scan { 0% { top: -10%; } 100% { top: 110%; } }
+
+  .target-corners { position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; border: 2px solid transparent; opacity: 0.5; &::after { content: ''; position: absolute; bottom: -2px; right: -2px; width: 30px; height: 30px; border-bottom: 2px solid; border-right: 2px solid; } }
+}
+
+.entity-glitch {
+  display: grid; grid-template-columns: repeat(3, 30px); grid-template-rows: repeat(3, 30px); gap: 2px;
+  animation: float 4s ease-in-out infinite;
+  
+  .pixel { width: 100%; height: 100%; border: 1px solid rgba(255,255,255,0.1); }
+  .red { background: #f43f5e; box-shadow: 0 0 10px #f43f5e; }
+  .blue { background: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
+  .green { background: #10b981; box-shadow: 0 0 10px #10b981; }
+  .empty { background: transparent; border: none; }
+}
+
+.entity-info {
+  .lore-text { color: #cbd5e1; font-size: 1.05rem; line-height: 1.6; margin-bottom: 20px; }
+  .lore-list {
+    list-style: none; padding: 0; margin: 0;
+    li { position: relative; padding-left: 20px; color: #94a3b8; margin-bottom: 12px; font-size: 0.95rem; line-height: 1.5; }
+    li::before { content: '>'; position: absolute; left: 0; font-weight: bold; }
+    strong { color: #f8fafc; }
+  }
+}
+.native-card .lore-list li::before { color: #10b981; }
+.invasive-card .lore-list li::before { color: #f43f5e; }
+
+@media (max-width: 992px) { .bestiary-grid { grid-template-columns: 1fr; } }
+/* --- CODEX BIOLOGICO --- */
+.codex-section { padding: 80px 20px; max-width: 1200px; margin: 0 auto; position: relative; z-index: 10; }
+
+.codex-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px;
+}
+
+.codex-card {
+  background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 20px;
+  cursor: pointer; transition: all 0.2s ease; backdrop-filter: blur(10px);
+  
+  &:hover { transform: translateY(-5px); background: rgba(30, 41, 59, 0.8); border-color: #38bdf8; box-shadow: 0 10px 25px rgba(56, 189, 248, 0.2); }
+  
+  .mini-holo { 
+    width: 60px; height: 60px; background: rgba(0,0,0,0.4); border-radius: 12px; 
+    border: 1px solid rgba(56, 189, 248, 0.3); display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 1px; padding: 5px;
+    .pixel-dot { width: 8px; height: 8px; }
+    .neuro { background: #38bdf8; } .gastro { background: #10b981; } .power { background: #f43f5e; }
+  }
+  
+  .codex-card-info {
+    display: flex; flex-direction: column; align-items: flex-start;
+    .species-id { color: #64748b; font-size: 0.75rem; font-family: monospace; letter-spacing: 1px; }
+    h4 { margin: 5px 0; color: #f8fafc; font-size: 1.2rem; }
+    .type-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; font-weight: bold; background: rgba(255,255,255,0.1); }
+    .type-tag.native { color: #10b981; background: rgba(16, 185, 129, 0.1); }
+    .type-tag.invasive { color: #f43f5e; background: rgba(244, 63, 94, 0.1); }
+  }
+}
+
+/* --- MODAL DEL CODEX (OLO-SIMULATORE) --- */
+.species-modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(10px);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 2000; animation: fadeIn 0.2s ease-out;
+}
+
+.species-modal {
+  background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 20px; padding: 40px; width: 900px; max-width: 95%; position: relative;
+  box-shadow: 0 0 50px rgba(56, 189, 248, 0.1);
+  
+  .close-btn { position: absolute; top: 15px; right: 20px; background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; &:hover { color: #f43f5e; } }
+}
+
+.modal-layout { display: flex; gap: 40px; }
+
+/* Il Terrario di prova */
+.holodeck-container {
+  background: #000; border-radius: 16px; border: 2px solid #1e293b; overflow: hidden;
+  display: flex; flex-direction: column; width: 350px;
+  .holo-header { background: #1e293b; color: #94a3b8; font-size: 0.75rem; text-align: center; padding: 5px; letter-spacing: 2px; font-family: monospace; }
+  .holo-canvas { width: 100%; height: 300px; image-rendering: pixelated; box-shadow: inset 0 0 30px rgba(16, 185, 129, 0.1); }
+}
+
+/* Informazioni Dettagliate */
+.species-data {
+  flex: 1; display: flex; flex-direction: column; justify-content: center;
+  
+  .type-badge { display: inline-block; width: max-content; padding: 4px 12px; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; border-radius: 100px; font-size: 0.8rem; font-weight: bold; margin-bottom: 10px; }
+  .type-badge.invasive { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border-color: #f43f5e; }
+  
+  h2 { font-size: 2.5rem; margin: 0 0 10px 0; color: #fff; .id-dim { color: #64748b; font-size: 1.5rem; font-weight: 400; } }
+  .cyber-line { border: none; height: 1px; background: linear-gradient(90deg, #38bdf8, transparent); margin-bottom: 20px; }
+  
+  .desc { color: #cbd5e1; font-size: 1.1rem; line-height: 1.6; margin-bottom: 30px; }
+  
+  .stats-box {
+    background: rgba(0, 0, 0, 0.3); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px; border: 1px solid rgba(255,255,255,0.05);
+    .s-row { display: flex; justify-content: space-between; color: #94a3b8; font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 5px; }
+    strong { color: #38bdf8; }
+  }
+}
+
+@media (max-width: 992px) { .codex-grid { grid-template-columns: 1fr; } .modal-layout { flex-direction: column; align-items: center; } .holodeck-container { width: 100%; } }

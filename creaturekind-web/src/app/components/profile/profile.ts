@@ -48,7 +48,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   }
 
   private fetchServerStats() {
-    this.http.get<any>('http://127.0.0.1:8000/api/server-stats').subscribe({
+    this.http.get<any>('http://192.168.1.19:8000/api/server-stats').subscribe({
       next: (stats) => {
         this.serverStats.totalGenerations = stats.totalGenerations;
         this.serverStats.maxFitnessReached = stats.maxFitnessReached;
@@ -59,7 +59,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     });
   }
   rechargeCredits() {
-    this.http.post<any>('http://127.0.0.1:8000/api/recharge', { email: this.user.email }).subscribe({
+    this.http.post<any>('http://192.168.1.19:8000/api/recharge', { email: this.user.email }).subscribe({
       next: (res) => {
         this.user.credits = res.new_credits;
         // Aggiorna anche il salvataggio locale
