@@ -72,13 +72,13 @@ class GameEngine:
     def __init__(self):
         self.tick = 0
         self.running = False
-        self.tps = 300
+        self.tps =300
         self.world = ToroidalSpace(width=6400, height=3600)
         self.spatial_grid = SpatialGrid(6400, 3600, 150.0)
         self.flora = []
         self.biomass = [] 
         self.creatures = []
-        self.eggs = [] 
+        self.eggs = []  
         self.generation = 0 
         self.genome_id_counter = 1000
         
@@ -201,7 +201,7 @@ class GameEngine:
                 for plant in self.flora:
                     spore = plant.update(self.world)
                     
-                    if spore and len(self.flora) < 60 and total_plant_pixels < 1000: 
+                    if spore and len(self.flora) < 150 and total_plant_pixels < 2000: 
                         near_w, in_w = check_water_for_plant(spore.pixels[0].x, spore.pixels[0].y, self.water_zones, self.world)
                         spore.is_near_water = near_w
                         spore.is_in_water = in_w
@@ -241,6 +241,12 @@ class GameEngine:
                                 c1.mating_cooldown = 150
                                 c2.mating_cooldown = 150
                                 
+                                # IL PREMIO NOBEL PER LA RIPRODUZIONE!
+                                # Diamo 500 Punti Fitness a entrambi i genitori. 
+                                # Questo insegnerà all'algoritmo NEAT che accoppiarsi è lo SCOPO DELLA VITA.
+                                c1.genome.fitness += 500.0
+                                c2.genome.fitness += 500.0
+                                
                                 self.genome_id_counter += 1
                                 new_genome = neat.DefaultGenome(self.genome_id_counter)
                                 new_genome.configure_crossover(c1.genome, c2.genome, self.neat_config.genome_config)
@@ -250,17 +256,6 @@ class GameEngine:
                                 child_morphology = mutate_morphology(c1.morphology, c2.morphology)
                                 
                                 self.eggs.append(Egg(id=f"egg_{self.genome_id_counter}", x=egg_x, y=egg_y, genome=new_genome, neat_config=self.neat_config, morphology=child_morphology))
-                                break 
-                            else:
-                                if c1.energy > c2.energy: attacker, defender = c1, c2
-                                else: attacker, defender = c2, c1
-                                
-                                damage = 100 + (sum(1 for p in attacker.morphology if p[0] == "Gastro") * 50)
-                                attacker.energy = min(800.0, attacker.energy + damage)
-                                attacker.genome.fitness += 20.0 
-                                defender.energy -= damage
-                                defender.pixels[0].x += random.uniform(-30, 30)
-                                defender.pixels[0].y += random.uniform(-30, 30)
                                 break
                 
                 # --- 6. ESTINZIONE ---
@@ -566,10 +561,37 @@ async def websocket_endpoint(websocket: WebSocket):
                                 diet_str = "Erbivoro" if num_power == 0 else "Carnivoro" if num_power > num_gastro else "Onnivoro"
                                 type_str = "Predatore" if num_power >= 2 else "Spazzino" if num_power == 1 else "Prede"
                                 
-                                # Estraiamo il cervello (Come facevamo nell'Ispezione)
+                               # --- ESTRAZIONE SICURA DEL CERVELLO ---
                                 brain_nodes = [{"id": n, "bias": g.bias} for n, g in target_c.genome.nodes.items()]
-                                brain_conns = [{"in": k[0], "out": k[1], "weight": g.weight} for k, g in target_c.genome.connections.items() if g.enabled]
+                                
+                                # Raccogliamo tutti gli ID validi (Sensi -1 a -17, Muscoli 0 e 1, e Nascosti)
+                                valid_node_ids = set([n["id"] for n in brain_nodes])
+                                # Aggiungiamo manualmente gli input visivi perché in NEAT a volte non appaiono in genome.nodes finché non mutano!
+                                for i in range(-1, -18, -1):
+                                    valid_node_ids.add(i)
+                                    # Se il senso non c'è nei nodi, lo aggiungiamo graficamente per l'Olo-Simulatore!
+                                    if not any(n["id"] == i for n in brain_nodes):
+                                        brain_nodes.append({"id": i, "bias": 0.0})
+
+                                brain_conns = []
+                                for conn_key, conn_gene in target_c.genome.connections.items():
+                                    if conn_gene.enabled: 
+                                        # IL CEROTTO: Salva la sinapsi SOLO se entrambi i neuroni esistono!
+                                        if conn_key[0] in valid_node_ids and conn_key[1] in valid_node_ids:
+                                            brain_conns.append({
+                                                "in": conn_key[0], 
+                                                "out": conn_key[1], 
+                                                "weight": conn_gene.weight
+                                            })
+
                                 brain_data = {"nodes": brain_nodes, "connections": brain_conns}
+
+                                # STORIA GENERATA PROCEDURALMENTE
+                                lore = f"Scoperta alla Generazione {engine.generation} da {user.username}. "
+                                lore += f"Ha raggiunto un picco evolutivo di {round(target_c.genome.fitness, 1)} Fitness. "
+                                lore += f"Presenta {num_power} tessuti muscolari e {num_gastro} apparati digestivi."
+                                
+                                # ... (il salvataggio nel database DiscoveredSpecies rimane uguale sotto) ...
 
                                 # STORIA GENERATA PROCEDURALMENTE
                                 lore = f"Scoperta alla Generazione {engine.generation} da {user.username}. "

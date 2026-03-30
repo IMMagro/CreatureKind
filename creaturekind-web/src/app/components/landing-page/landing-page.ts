@@ -34,7 +34,7 @@ export class LandingPageComponent implements OnInit {
     if (localStorage.getItem('user_data')) this.isLoggedIn = true;
 
     // SCARICA IL VERO CODEX DAL SERVER PYTHON!
-    this.http.get<any[]>('http://192.168.1.19:8000/api/codex').subscribe({
+    this.http.get<any[]>('http://192.168.10.139:8000/api/codex').subscribe({
       next: (data) => {
         // Se il database Python è vuoto, mostriamo 2 creature "finte" per abbellire il sito
         if (data && data.length === 0) {
@@ -56,6 +56,7 @@ export class LandingPageComponent implements OnInit {
           // SE CI SONO DATI NEL DB, LI MOSTRA TUTTI E IGNORA I FINTI!
           this.codexDatabase = data;
         }
+      this.cdr.detectChanges(); 
       },
       error: (err) => console.error("Errore caricamento Codex", err)
     });
@@ -79,7 +80,7 @@ export class LandingPageComponent implements OnInit {
 
   submitAuth() {
     this.errorMessage = '';
-    const url = this.isLoginMode ? 'http://192.168.1.19:8000/api/login' : 'http://192.168.1.19:8000/api/register';
+    const url = this.isLoginMode ? 'http://192.168.10.139:8000/api/login' : 'http://192.168.10.139:8000/api/register';
     this.http.post<any>(url, this.authData).subscribe({
       next: (response) => {
         if (this.isLoginMode) {
@@ -99,13 +100,13 @@ export class LandingPageComponent implements OnInit {
     this.selectedSpecies = species;
     this.cdr.detectChanges(); // Forza Angular a mostrare i Canvas nell'HTML
     
-    // Disegna la Simulazione Fisica 2D
-    setTimeout(() => this.startHoloSim(species.morphology), 50); 
-    
-    // Disegna la Mappa del Cervello (se è stata censita e salvata!)
-    if (species.brain) {
-      setTimeout(() => this.drawBrain(species.brain), 50);
-    }
+    // AUMENTATO A 150ms: Diamo il tempo al browser di materializzare i due <canvas>!
+    setTimeout(() => {
+      this.startHoloSim(species.morphology);
+      if (species.brain) {
+        this.drawBrain(species.brain);
+      }
+    }, 150); 
   }
 
   closeSpeciesInfo() {

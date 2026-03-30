@@ -151,8 +151,10 @@ class SmartCreature:
                     if dist < min_food_dist: min_food_dist, closest_food, target_list = dist, p_pixel, plant.pixels
 
         if closest_food and min_food_dist < 15.0:
-            self.energy = min(1500.0, self.energy + self.digestion_power)
-            self.genome.fitness += 15.0 
+            # Un morso ora sazia molto di più! (Da 50 a 100 base)
+            mors_power = 100.0 + (sum(1 for p in self.morphology if p[0] == "Gastro") * 50.0)
+            self.energy = min(2000.0, self.energy + mors_power)
+            self.genome.fitness += 5.0 
             target_list.remove(closest_food)
 
         # Controlla se sta fisicamente dentro l'acqua per bere

@@ -153,7 +153,7 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
 
   // --- WEBSOCKET ---
   private connectWebSocket() {
-    this.ws = new WebSocket('ws://192.168.1.19:8000/ws'); // Assicurati che l'IP sia corretto!
+    this.ws = new WebSocket('ws://192.168.10.139:8000/ws'); // Assicurati che l'IP sia corretto!
 
     this.ws.onopen = () => {
       this.loopInterval = setInterval(() => {
