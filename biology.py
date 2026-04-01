@@ -81,8 +81,12 @@ class Egg:
 class SmartCreature:
     def __init__(self, id: str, x: float, y: float, genome, neat_config, morphology):
         self.id = id
-        self.energy = 800.0
-        self.hydration = 1000.0 
+        
+        # PARAMETRI VITALI
+        self.vitality = 100.0 # NUOVO: La Salute (Se va a 0, muore)
+        self.energy = 1000.0  # Fame
+        self.hydration = 1000.0 # Sete
+        
         self.age = 0 
         self.is_dead = False
         self.mating_cooldown = 0 
@@ -100,13 +104,14 @@ class SmartCreature:
             if p_type == "Gastro": num_gastro += 1
             
         self.max_speed = 8.0 + (num_power * 4.0) 
-        self.digestion_power = 50.0 + (num_gastro * 50.0) 
-        self.base_metabolism = 1.5 + (max(0, len(self.pixels) - 3) * 0.5)
+        self.digestion_power = 80.0 + (num_gastro * 60.0) 
+        
+        # METABOLISMO BASALE (Mb)
+        self.basal_metabolism = 0.5 + (len(self.pixels) * 0.2)
         
         self.vision_radius = 600.0 
         self.angle = random.uniform(0, 2 * math.pi) 
 
-        # Memoria visiva per la "Vista Pigra"
         self.eye_food = [0.0] * 5
         self.eye_creat = [0.0] * 5
         self.eye_water = [0.0] * 5
@@ -118,30 +123,20 @@ class SmartCreature:
             return
 
         self.age += 1
-        age_penalty = max(0.0, (self.age - 5000) / 1000.0)
-        self.energy -= (self.base_metabolism + age_penalty)
-        self.hydration -= 2.0 
         self.genome.fitness += 0.1 
-        
         if self.mating_cooldown > 0: self.mating_cooldown -= 1
-        if self.energy <= 0 or self.hydration <= 0:
-            self.die()
-            return
-
+        
         head_x, head_y = self.pixels[0].x, self.pixels[0].y
 
         # ========================================================
-        # FASE 1: IL MORSO (CALCOLATO SEMPRE, MA SOLO A CORTA DISTANZA)
+        # FASE 1: I SENSI (Vista e Morso) - [Il codice della vista rimane UGUALE a prima]
         # ========================================================
         closest_food, min_food_dist, target_list = None, 20.0, None
-        
-        # Cerca Biomassa vicinissima (Raggio 20)
         nearby_biomass = spatial_grid.get_nearby(head_x, head_y, 20.0)
         for b_pixel in nearby_biomass:
             dist = space.distance(head_x, head_y, b_pixel.x, b_pixel.y)
             if dist < min_food_dist: min_food_dist, closest_food, target_list = dist, b_pixel, biomass_list
 
-        # Cerca Foglie di Pianta vicinissime (Solo se il tronco dell'albero è a max 150px)
         for plant in flora_list:
             if plant.is_dead or not plant.pixels: continue
             if space.distance(head_x, head_y, plant.pixels[0].x, plant.pixels[0].y) < 150.0:
@@ -151,13 +146,10 @@ class SmartCreature:
                     if dist < min_food_dist: min_food_dist, closest_food, target_list = dist, p_pixel, plant.pixels
 
         if closest_food and min_food_dist < 15.0:
-            # Un morso ora sazia molto di più! (Da 50 a 100 base)
-            mors_power = 100.0 + (sum(1 for p in self.morphology if p[0] == "Gastro") * 50.0)
-            self.energy = min(2000.0, self.energy + mors_power)
-            self.genome.fitness += 5.0 
+            self.energy = min(1500.0, self.energy + self.digestion_power)
+            self.genome.fitness += 15.0 
             target_list.remove(closest_food)
 
-        # Controlla se sta fisicamente dentro l'acqua per bere
         in_water = False
         for w in water_zones:
             if space.distance(head_x, head_y, w["x"], w["y"]) <= w["radius"]:
@@ -166,14 +158,10 @@ class SmartCreature:
                 self.genome.fitness += 1.0 
                 break
 
-        # ========================================================
-        # FASE 2: LA VISTA (CALCOLATA SOLO OGNI 3 TICK PER RISPARMIARE CPU!)
-        # ========================================================
         if self.age % 3 == 0:
             self.eye_food = [0.0] * 5
             self.eye_creat = [0.0] * 5
             self.eye_water = [0.0] * 5
-
             eye_angles = [-math.pi/4, -math.pi/9, 0, math.pi/9, math.pi/4]
             rays = []
             for offset_angle in eye_angles:
@@ -182,7 +170,6 @@ class SmartCreature:
                 ray_end_y = head_y + math.sin(ray_angle) * self.vision_radius
                 rays.append((ray_end_x, ray_end_y))
 
-            # Guarda l'acqua
             for w in water_zones:
                 for i, (end_x, end_y) in enumerate(rays):
                     hit, dist = line_intersects_circle(head_x, head_y, end_x, end_y, w["x"], w["y"], w["radius"], space)
@@ -190,7 +177,6 @@ class SmartCreature:
                         signal = max(0.0, 1.0 - (dist / self.vision_radius))
                         if signal > self.eye_water[i]: self.eye_water[i] = signal
 
-            # Guarda la Biomassa (usando la Grid)
             nearby_vision_biomass = spatial_grid.get_nearby(head_x, head_y, self.vision_radius)
             for b_pixel in nearby_vision_biomass:
                 for i, (end_x, end_y) in enumerate(rays):
@@ -199,7 +185,6 @@ class SmartCreature:
                         signal = max(0.0, 1.0 - (hit_dist / self.vision_radius))
                         if signal > self.eye_food[i]: self.eye_food[i] = signal
 
-            # Guarda il TRONCO delle piante (Ignora le foglie per non laggare!)
             for plant in flora_list:
                 if plant.is_dead or not plant.pixels: continue
                 if space.distance(head_x, head_y, plant.pixels[0].x, plant.pixels[0].y) < self.vision_radius + 50:
@@ -209,7 +194,6 @@ class SmartCreature:
                             signal = max(0.0, 1.0 - (hit_dist / self.vision_radius))
                             if signal > self.eye_food[i]: self.eye_food[i] = signal
 
-            # Guarda le altre creature
             for other in all_creatures:
                 if other.id == self.id or other.is_dead: continue
                 if space.distance(head_x, head_y, other.pixels[0].x, other.pixels[0].y) < self.vision_radius:
@@ -220,9 +204,9 @@ class SmartCreature:
                             if signal > self.eye_creat[i]: self.eye_creat[i] = signal
 
         # ========================================================
-        # FASE 3: IL CERVELLO
+        # FASE 2: IL CERVELLO
         # ========================================================
-        input_energy = self.energy / 800.0 
+        input_energy = self.energy / 1500.0 
         input_hydration = self.hydration / 1000.0
         
         brain_inputs = self.eye_food + self.eye_creat + self.eye_water + [input_energy, input_hydration]
@@ -232,9 +216,42 @@ class SmartCreature:
 
         turn_speed = 0.2 * (3.0 / len(self.pixels))
         self.angle += turn_signal * turn_speed 
+        
+        # Calcolo della Velocità Attuale
         actual_speed = self.max_speed * max(0.0, speed_signal) 
         if in_water: actual_speed *= 0.5 
+
+        # ========================================================
+        # FASE 3: LA NUOVA BIOLOGIA (Adrenalina e Vitalità)
+        # ========================================================
         
+        # Costo dell'Azione (Correre veloce consuma di più!)
+        action_cost = (actual_speed / self.max_speed) * 2.0
+        
+        # LA FAME (Inedia e Adrenalina)
+        total_energy_drain = self.basal_metabolism + action_cost
+        
+        if self.energy < 300.0: 
+            # MODALITÀ SOPRAVVIVENZA (Adrenalina): Velocità aumentata del 50%, ma brucia il doppio!
+            actual_speed *= 1.5
+            total_energy_drain *= 2.0
+            
+        self.energy -= total_energy_drain
+        self.hydration -= 2.5 # La sete scende leggermente più veloce della fame
+
+        # IL DANNO FISICO (Vitalità)
+        if self.energy <= 0 or self.hydration <= 0:
+            # Non muore all'istante! Perde la Salute.
+            self.vitality -= 2.0 
+        else:
+            # Se ha mangiato e bevuto, si cura lentamente
+            self.vitality = min(100.0, self.vitality + 0.5)
+
+        if self.vitality <= 0:
+            self.die()
+            return
+
+        # Movimento Fisico
         move_x = math.cos(self.angle) * actual_speed
         move_y = math.sin(self.angle) * actual_speed
         

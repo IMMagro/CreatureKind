@@ -72,7 +72,7 @@ class GameEngine:
     def __init__(self):
         self.tick = 0
         self.running = False
-        self.tps =300
+        self.tps =30
         self.world = ToroidalSpace(width=6400, height=3600)
         self.spatial_grid = SpatialGrid(6400, 3600, 150.0)
         self.flora = []
@@ -81,6 +81,7 @@ class GameEngine:
         self.eggs = []  
         self.generation = 0 
         self.genome_id_counter = 1000
+        self.best_morphology_memory = BASE_MORPHOLOGY # Memoria genetica
         
         self.water_zones = [
             {"x": 1000, "y": 800, "radius": 400},
@@ -165,7 +166,8 @@ class GameEngine:
         
         for i, (genome_id, genome) in enumerate(self.pop.population.items()):
             x, y = random.uniform(0, 6400), random.uniform(0, 3600)
-            self.eggs.append(Egg(id=f"egg_{i}", x=x, y=y, genome=genome, neat_config=self.neat_config, morphology=BASE_MORPHOLOGY))        
+            # FIX: Le uova rinascono con il corpo dell'ultima specie dominante!
+            self.eggs.append(Egg(id=f"egg_{i}", x=x, y=y, genome=genome, neat_config=self.neat_config, morphology=self.best_morphology_memory)) 
         
         gc.collect()
         self.save_state()
@@ -222,10 +224,19 @@ class GameEngine:
                 
                 # --- 4. CREATURE E INTELLIGENZA ---
                 surviving_creatures = []
+                best_gen_fitness = -1.0
+                
                 for creature in self.creatures:
                     creature.update(self.world, self.flora, self.biomass, self.creatures, self.water_zones, self.spatial_grid)
-                    if creature.is_dead: self.biomass.extend(creature.pixels)
-                    else: surviving_creatures.append(creature)
+                    if creature.is_dead: 
+                        self.biomass.extend(creature.pixels)
+                    else: 
+                        surviving_creatures.append(creature)
+                        # Salviamo il corpo del migliore per l'eventuale estinzione!
+                        if creature.genome.fitness > best_gen_fitness:
+                            best_gen_fitness = creature.genome.fitness
+                            self.best_morphology_memory = copy.deepcopy(creature.morphology)
+                            
                 self.creatures = surviving_creatures
                 
                 # --- 5. COMBATTIMENTO E ACCOPPIAMENTO ---
@@ -462,6 +473,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                         "id": c.id, 
                                         "energy": round(c.energy, 1),
                                         "hydration": round(c.hydration, 1), 
+                                        "vitality": c.vitality,
                                         "age": c.age,
                                         "fitness": round(c.genome.fitness, 1), 
                                         "cooldown": c.mating_cooldown,

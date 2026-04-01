@@ -142,14 +142,22 @@
         </span>
       </div>
 
-      <!-- Statistiche Vitali -->
+      <!-- Statistiche (Barre Piccole) -->
       <div class="stats-list">
-        <!-- ... [Lascia le statistiche di prima intatte (Energia, Sete, Fitness, Età, Stato)] ... -->
-        <div class="stat-item"><div class="stat-top"><span>⚡ Energia</span> <span>{{ trackedInfo.energy | number:'1.0-0' }}</span></div><div class="bar-bg"><div class="bar-fill bg-orange" [style.width.%]="(trackedInfo.energy / 1500) * 100"></div></div></div>
-        <div class="stat-item"><div class="stat-top"><span>💧 Idratazione</span> <span>{{ trackedInfo.hydration | number:'1.0-0' }}</span></div><div class="bar-bg"><div class="bar-fill bg-blue" [style.width.%]="(trackedInfo.hydration / 1000) * 100"></div></div></div>
+        <div class="stat-item">
+          <div class="stat-top"><span>❤️ Vitalità (Salute)</span> <span>{{ trackedInfo.vitality | number:'1.0-0' }}%</span></div>
+          <div class="bar-bg"><div class="bar-fill bg-red" [style.width.%]="trackedInfo.vitality"></div></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-top"><span>⚡ Energia (Fame)</span> <span>{{ trackedInfo.energy | number:'1.0-0' }}</span></div>
+          <div class="bar-bg"><div class="bar-fill bg-orange" [style.width.%]="(trackedInfo.energy / 1500) * 100"></div></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-top"><span>💧 Idratazione (Sete)</span> <span>{{ trackedInfo.hydration | number:'1.0-0' }}</span></div>
+          <div class="bar-bg"><div class="bar-fill bg-blue" [style.width.%]="(trackedInfo.hydration / 1000) * 100"></div></div>
+        </div>
         <div class="stat-item"><div class="stat-top"><span>🧠 Fitness</span> <span class="purple">{{ trackedInfo.fitness | number:'1.1-1' }}</span></div></div>
         <div class="stat-item"><div class="stat-top"><span>⏳ Età</span> <span>{{ trackedInfo.age || 0 }} Tick</span></div></div>
-        <div class="stat-item"><div class="stat-top"><span>💞 Stato</span> <span [class.ready]="trackedInfo.cooldown === 0" [class.cooldown]="trackedInfo.cooldown > 0">{{ trackedInfo.cooldown === 0 ? 'Fertile' : 'In Cooldown' }}</span></div></div>
       </div>
 
       <!-- LA NUOVA SEZIONE: IL CERVELLO (NEAT) -->
@@ -157,15 +165,13 @@
         <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0 15px 0;">
         <h3 style="margin: 0 0 10px 0; font-size: 0.9rem; color: #94a3b8; text-transform: uppercase;">Topologia Neurale</h3>
         
-        <!-- Il Canvas dove disegneremo i neuroni -->
-        <div class="brain-box" style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 10px; border: 1px solid rgba(255,255,255,0.05);">
-          <canvas #brainCanvas width="280" height="250" style="width: 100%; display: block;"></canvas>
+        <div class="brain-box" style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 10px; border: 1px solid rgba(255,255,255,0.05); overflow-y: hidden;">
+          <!-- IL FIX È QUI: HEIGHT 250! -->
+          <canvas #brainCanvas width="480" height="280" style="width: 100%; display: block;"></canvas>
         </div>
         
         <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 5px;">
-          <span>Sensi (Input)</span>
-          <span>Nascosti</span>
-          <span>Muscoli (Out)</span>
+          <span>Sensi (In)</span><span>Nascosti</span><span>Muscoli (Out)</span>
         </div>
       </div>
 
