@@ -81,37 +81,41 @@ class Egg:
 class SmartCreature:
     def __init__(self, id: str, x: float, y: float, genome, neat_config, morphology):
         self.id = id
-        
-        # PARAMETRI VITALI
-        self.vitality = 100.0 # NUOVO: La Salute (Se va a 0, muore)
-        self.energy = 1000.0  # Fame
-        self.hydration = 1000.0 # Sete
-        
         self.age = 0 
         self.is_dead = False
+        
+        # --- OMEOSTASI PRIMARIA ---
+        self.vitality = 100.0   # Salute fisica (0 = Morte)
+        self.energy = 800.0     # Riserve di cibo
+        self.hydration = 1000.0 # Riserve d'acqua
+        
+        # --- SISTEMA ENDOCRINO E FISIOLOGICO (Novità!) ---
+        self.lactic_acid = 0.0  # Fatica muscolare a breve termine
+        self.exhaustion = 0.0   # Sonno/Fatica neurale
+        self.is_sleeping = False
+        self.heat = 36.0        # Temperatura corporea (Se > 40° suda e perde acqua)
+        self.pain = 0.0         # Sensore di danno istantaneo
+        
         self.mating_cooldown = 0 
         self.genome = genome
         self.genome.fitness = 0.0 
-        
         self.brain = neat.nn.RecurrentNetwork.create(genome, neat_config)
-        self.morphology = morphology 
         
+        # --- ONTOGENESI E MORFOLOGIA ---
+        # Il DNA contiene la forma "Adulta". La creatura nasce piccola (scale = 0.5)
+        self.dna_morphology = morphology 
+        self.growth_scale = 0.5  # Parte al 50% della grandezza
         self.pixels = []
-        num_power, num_gastro = 0, 0
-        for i, (p_type, dx, dy) in enumerate(self.morphology):
-            self.pixels.append(Pixel(id=f"{id}_{i}", x=x+dx, y=y+dy, pixel_type=p_type))
-            if p_type == "Power": num_power += 1
-            if p_type == "Gastro": num_gastro += 1
+        
+        self.num_power = 0
+        self.num_gastro = 0
+        for (p_type, dx, dy) in self.dna_morphology:
+            if p_type == "Power": self.num_power += 1
+            if p_type == "Gastro": self.num_gastro += 1
+            # I pixel nascono "vicini" al centro
+            self.pixels.append(Pixel(id=f"{id}_{len(self.pixels)}", x=x+(dx*self.growth_scale), y=y+(dy*self.growth_scale), pixel_type=p_type))
             
-        self.max_speed = 8.0 + (num_power * 4.0) 
-        self.digestion_power = 80.0 + (num_gastro * 60.0) 
-        
-        # METABOLISMO BASALE (Mb)
-        self.basal_metabolism = 0.5 + (len(self.pixels) * 0.2)
-        
-        self.vision_radius = 600.0 
         self.angle = random.uniform(0, 2 * math.pi) 
-
         self.eye_food = [0.0] * 5
         self.eye_creat = [0.0] * 5
         self.eye_water = [0.0] * 5
@@ -126,13 +130,17 @@ class SmartCreature:
         self.genome.fitness += 0.1 
         if self.mating_cooldown > 0: self.mating_cooldown -= 1
         
+        # Il dolore svanisce velocemente se non viene ri-attivato
+        self.pain = max(0.0, self.pain - 0.2)
+        
         head_x, head_y = self.pixels[0].x, self.pixels[0].y
 
         # ========================================================
-        # FASE 1: I SENSI (Vista e Morso) - [Il codice della vista rimane UGUALE a prima]
+        # FASE 1: I SENSI ESTERNI E L'AMBIENTE
         # ========================================================
-        closest_food, min_food_dist, target_list = None, 20.0, None
-        nearby_biomass = spatial_grid.get_nearby(head_x, head_y, 20.0)
+        closest_food, min_food_dist, target_list = None, 20.0 * self.growth_scale, None
+        nearby_biomass = spatial_grid.get_nearby(head_x, head_y, 25.0)
+        
         for b_pixel in nearby_biomass:
             dist = space.distance(head_x, head_y, b_pixel.x, b_pixel.y)
             if dist < min_food_dist: min_food_dist, closest_food, target_list = dist, b_pixel, biomass_list
@@ -145,8 +153,11 @@ class SmartCreature:
                     dist = space.distance(head_x, head_y, p_pixel.x, p_pixel.y)
                     if dist < min_food_dist: min_food_dist, closest_food, target_list = dist, p_pixel, plant.pixels
 
+        # Fisiologia della Digestione (Cresce con la stazza!)
+        digestion_power = (50.0 + (self.num_gastro * 50.0)) * self.growth_scale
+        
         if closest_food and min_food_dist < 15.0:
-            self.energy = min(1500.0, self.energy + self.digestion_power)
+            self.energy = min(2000.0, self.energy + digestion_power)
             self.genome.fitness += 15.0 
             target_list.remove(closest_food)
 
@@ -155,10 +166,14 @@ class SmartCreature:
             if space.distance(head_x, head_y, w["x"], w["y"]) <= w["radius"]:
                 in_water = True
                 self.hydration = min(1000.0, self.hydration + 50.0)
+                self.heat = max(36.0, self.heat - 1.0) # L'acqua raffredda il corpo!
                 self.genome.fitness += 1.0 
                 break
 
-        if self.age % 3 == 0:
+        # SGUARDO VETTORIALE (Scalato in base alla crescita: creature grandi vedono più lontano!)
+        vision_radius = 400.0 + (200.0 * self.growth_scale)
+        
+        if not self.is_sleeping and self.age % 3 == 0:
             self.eye_food = [0.0] * 5
             self.eye_creat = [0.0] * 5
             self.eye_water = [0.0] * 5
@@ -166,92 +181,155 @@ class SmartCreature:
             rays = []
             for offset_angle in eye_angles:
                 ray_angle = self.angle + offset_angle
-                ray_end_x = head_x + math.cos(ray_angle) * self.vision_radius
-                ray_end_y = head_y + math.sin(ray_angle) * self.vision_radius
+                ray_end_x = head_x + math.cos(ray_angle) * vision_radius
+                ray_end_y = head_y + math.sin(ray_angle) * vision_radius
                 rays.append((ray_end_x, ray_end_y))
 
             for w in water_zones:
                 for i, (end_x, end_y) in enumerate(rays):
                     hit, dist = line_intersects_circle(head_x, head_y, end_x, end_y, w["x"], w["y"], w["radius"], space)
                     if hit:
-                        signal = max(0.0, 1.0 - (dist / self.vision_radius))
+                        signal = max(0.0, 1.0 - (dist / vision_radius))
                         if signal > self.eye_water[i]: self.eye_water[i] = signal
 
-            nearby_vision_biomass = spatial_grid.get_nearby(head_x, head_y, self.vision_radius)
+            nearby_vision_biomass = spatial_grid.get_nearby(head_x, head_y, vision_radius)
             for b_pixel in nearby_vision_biomass:
                 for i, (end_x, end_y) in enumerate(rays):
                     hit, hit_dist = line_intersects_circle(head_x, head_y, end_x, end_y, b_pixel.x, b_pixel.y, 15.0, space)
                     if hit:
-                        signal = max(0.0, 1.0 - (hit_dist / self.vision_radius))
+                        signal = max(0.0, 1.0 - (hit_dist / vision_radius))
                         if signal > self.eye_food[i]: self.eye_food[i] = signal
 
             for plant in flora_list:
                 if plant.is_dead or not plant.pixels: continue
-                if space.distance(head_x, head_y, plant.pixels[0].x, plant.pixels[0].y) < self.vision_radius + 50:
+                if space.distance(head_x, head_y, plant.pixels[0].x, plant.pixels[0].y) < vision_radius + 50:
                     for i, (end_x, end_y) in enumerate(rays):
                         hit, hit_dist = line_intersects_circle(head_x, head_y, end_x, end_y, plant.pixels[0].x, plant.pixels[0].y, 30.0, space)
                         if hit:
-                            signal = max(0.0, 1.0 - (hit_dist / self.vision_radius))
+                            signal = max(0.0, 1.0 - (hit_dist / vision_radius))
                             if signal > self.eye_food[i]: self.eye_food[i] = signal
 
             for other in all_creatures:
                 if other.id == self.id or other.is_dead: continue
-                if space.distance(head_x, head_y, other.pixels[0].x, other.pixels[0].y) < self.vision_radius:
+                if space.distance(head_x, head_y, other.pixels[0].x, other.pixels[0].y) < vision_radius:
                     for i, (end_x, end_y) in enumerate(rays):
-                        hit, hit_dist = line_intersects_circle(head_x, head_y, end_x, end_y, other.pixels[0].x, other.pixels[0].y, 25.0, space)
+                        # L'ingombro visivo dipende dalla grandezza dell'altra creatura
+                        hit, hit_dist = line_intersects_circle(head_x, head_y, end_x, end_y, other.pixels[0].x, other.pixels[0].y, 25.0 * other.growth_scale, space)
                         if hit:
-                            signal = max(0.0, 1.0 - (hit_dist / self.vision_radius))
+                            signal = max(0.0, 1.0 - (hit_dist / vision_radius))
                             if signal > self.eye_creat[i]: self.eye_creat[i] = signal
 
         # ========================================================
-        # FASE 2: IL CERVELLO
+        # FASE 2: IL SISTEMA ENDOCRINO E IL CERVELLO
         # ========================================================
-        input_energy = self.energy / 1500.0 
-        input_hydration = self.hydration / 1000.0
         
-        brain_inputs = self.eye_food + self.eye_creat + self.eye_water + [input_energy, input_hydration]
-        outputs = self.brain.activate(brain_inputs)
-        
-        turn_signal, speed_signal = outputs[0], outputs[1] 
+        if self.is_sleeping:
+            turn_signal, speed_signal = 0.0, 0.0
+            self.exhaustion = max(0.0, self.exhaustion - 10.0)
+            self.lactic_acid = max(0.0, self.lactic_acid - 5.0)
+            self.heat = max(36.0, self.heat - 0.5)
+            if self.exhaustion <= 0.0: self.is_sleeping = False
+        else:
+            # GLI ORMONI (DRIVES): Non sono lineari, ma Esponenziali!
+            # Più ha fame, più il segnale "Urla" nel cervello, sovrastando la logica.
+            drive_hunger = 0.0 if self.energy > 600 else ((600 - self.energy) / 600.0) ** 2
+            drive_thirst = 0.0 if self.hydration > 400 else ((400 - self.hydration) / 400.0) ** 2
+            
+            # Stanchezza e Dolore (Propriocezione)
+            input_lactic = self.lactic_acid / 100.0   
+            input_exhaustion = self.exhaustion / 1000.0 
+            input_pain = self.pain
+            
+            # IL CERVELLO RICEVE 19 INPUT (Gli Occhi + I 5 Sensi Omeostatici/Ormonali)
+            brain_inputs = self.eye_food + self.eye_creat + self.eye_water + [drive_hunger, drive_thirst, input_lactic, input_exhaustion]
+            # Assicuriamoci che la rete neurale sia configurata per 22 input (15 occhi + 7 sensi)
+            # SE LA RETE NE HA 19 nel file txt, usiamo solo:
+            brain_inputs = self.eye_food + self.eye_creat + self.eye_water + [drive_hunger, drive_thirst, input_lactic, input_pain]
+            
+            outputs = self.brain.activate(brain_inputs)
+            turn_signal, speed_signal = outputs[0], outputs[1] 
 
-        turn_speed = 0.2 * (3.0 / len(self.pixels))
+        # ========================================================
+        # FASE 3: IL CORPO E LA SENESCENZA
+        # ========================================================
+        
+        # LA VECCHIAIA: Col passare del tempo, i muscoli perdono forza e il metabolismo costa di più
+        senescence_factor = max(0.0, (self.age - 6000) / 4000.0) # Inizia a invecchiare a 6000 tick
+        
+        # Il peso rallenta la sterzata e la velocità massima
+        weight_penalty = 1.0 / max(1.0, (len(self.pixels) * self.growth_scale * 0.5))
+        turn_speed = 0.3 * weight_penalty
         self.angle += turn_signal * turn_speed 
         
-        # Calcolo della Velocità Attuale
-        actual_speed = self.max_speed * max(0.0, speed_signal) 
+        # I muscoli invecchiati rendono meno!
+        base_max_speed = 6.0 + (self.num_power * 4.0) 
+        muscle_efficiency = max(0.2, 1.0 - senescence_factor)
+        intended_speed = base_max_speed * muscle_efficiency * max(0.0, speed_signal) 
+        
+        fatigue_penalty = 1.0 - (self.lactic_acid / 200.0) 
+        actual_speed = intended_speed * fatigue_penalty
+        
         if in_water: actual_speed *= 0.5 
 
-        # ========================================================
-        # FASE 3: LA NUOVA BIOLOGIA (Adrenalina e Vitalità)
-        # ========================================================
+        # FISIOLOGIA DELL'AZIONE E TERMOREGOLAZIONE
+        action_intensity = actual_speed / base_max_speed
         
-        # Costo dell'Azione (Correre veloce consuma di più!)
-        action_cost = (actual_speed / self.max_speed) * 2.0
+        if action_intensity > 0.5:
+            self.lactic_acid = min(100.0, self.lactic_acid + (action_intensity * (self.num_power+1)))
+            self.heat += action_intensity * 0.1 # Correre scalda!
+        else:
+            self.lactic_acid = max(0.0, self.lactic_acid - 2.0)
+            self.heat = max(36.0, self.heat - 0.05)
+            
+        if not self.is_sleeping:
+            self.exhaustion += 1.0 + (action_intensity * 2.0)
+            if self.exhaustion >= 1000.0:
+                self.is_sleeping = True
+
+        # METABOLISMO BASALE E SENESCENZA (Crescere costa!)
+        basal_metabolism = (0.5 + (len(self.pixels) * self.growth_scale * 0.3)) * (1.0 + senescence_factor)
+        total_energy_drain = basal_metabolism + (action_intensity * 2.5)
         
-        # LA FAME (Inedia e Adrenalina)
-        total_energy_drain = self.basal_metabolism + action_cost
-        
-        if self.energy < 300.0: 
-            # MODALITÀ SOPRAVVIVENZA (Adrenalina): Velocità aumentata del 50%, ma brucia il doppio!
-            actual_speed *= 1.5
-            total_energy_drain *= 2.0
+        # ADRENALINA E SUDORE
+        if self.energy < 200.0 and not self.is_sleeping: 
+            actual_speed *= 1.3 # Ultimo scatto per sopravvivere
+            total_energy_drain *= 1.5 
+            
+        if self.is_sleeping: total_energy_drain *= 0.5 
             
         self.energy -= total_energy_drain
-        self.hydration -= 2.5 # La sete scende leggermente più veloce della fame
+        
+        # LA SETE: Aumenta drasticamente se la creatura ha caldo!
+        sweat_factor = 1.0 + max(0.0, (self.heat - 38.0) * 0.5)
+        self.hydration -= (2.0 * sweat_factor) if not self.is_sleeping else 1.0
 
-        # IL DANNO FISICO (Vitalità)
+        # DANNO E CURA
         if self.energy <= 0 or self.hydration <= 0:
-            # Non muore all'istante! Perde la Salute.
             self.vitality -= 2.0 
+            self.pain = 1.0 # Prova un dolore atroce per la fame/sete!
         else:
-            # Se ha mangiato e bevuto, si cura lentamente
             self.vitality = min(100.0, self.vitality + 0.5)
 
         if self.vitality <= 0:
             self.die()
             return
 
-        # Movimento Fisico
+        # ========================================================
+        # FASE 4: L'ONTOGENESI (CRESCITA FISICA) E MOVIMENTO
+        # ========================================================
+        
+        # Se ha molta energia (Surplus), la converte in Crescita Strutturale (fino al 100% del DNA)
+        if self.energy > 1200 and self.growth_scale < 1.0:
+            self.growth_scale += 0.005 # Cresce lentamente
+            self.energy -= 5.0 # Crescere costa energia
+            
+            # Riapplica la scala ai pixel fisici (Si "Gonfia" visivamente a schermo!)
+            head_x, head_y = self.pixels[0].x, self.pixels[0].y
+            for i, p in enumerate(self.pixels):
+                dna_dx, dna_dy = self.dna_morphology[i][1], self.dna_morphology[i][2]
+                p.x = space.wrap(head_x + (dna_dx * self.growth_scale), p.y)[0]
+                p.y = space.wrap(p.x, head_y + (dna_dy * self.growth_scale))[1]
+
         move_x = math.cos(self.angle) * actual_speed
         move_y = math.sin(self.angle) * actual_speed
         

@@ -203,7 +203,7 @@ class GameEngine:
                 for plant in self.flora:
                     spore = plant.update(self.world)
                     
-                    if spore and len(self.flora) < 150 and total_plant_pixels < 2000: 
+                    if spore and len(self.flora) < 250 and total_plant_pixels < 5000: 
                         near_w, in_w = check_water_for_plant(spore.pixels[0].x, spore.pixels[0].y, self.water_zones, self.world)
                         spore.is_near_water = near_w
                         spore.is_in_water = in_w
@@ -232,10 +232,10 @@ class GameEngine:
                         self.biomass.extend(creature.pixels)
                     else: 
                         surviving_creatures.append(creature)
-                        # Salviamo il corpo del migliore per l'eventuale estinzione!
+                        # SALVIAMO IL CORPO DEL MIGLIORE (CORRETTO IN dna_morphology!)
                         if creature.genome.fitness > best_gen_fitness:
                             best_gen_fitness = creature.genome.fitness
-                            self.best_morphology_memory = copy.deepcopy(creature.morphology)
+                            self.best_morphology_memory = copy.deepcopy(creature.dna_morphology)
                             
                 self.creatures = surviving_creatures
                 
@@ -252,9 +252,6 @@ class GameEngine:
                                 c1.mating_cooldown = 150
                                 c2.mating_cooldown = 150
                                 
-                                # IL PREMIO NOBEL PER LA RIPRODUZIONE!
-                                # Diamo 500 Punti Fitness a entrambi i genitori. 
-                                # Questo insegnerà all'algoritmo NEAT che accoppiarsi è lo SCOPO DELLA VITA.
                                 c1.genome.fitness += 500.0
                                 c2.genome.fitness += 500.0
                                 
@@ -264,16 +261,30 @@ class GameEngine:
                                 new_genome.mutate(self.neat_config.genome_config)
                                 
                                 egg_x, egg_y = (c1.pixels[0].x + c2.pixels[0].x) / 2, (c1.pixels[0].y + c2.pixels[0].y) / 2
-                                child_morphology = mutate_morphology(c1.morphology, c2.morphology)
+                                
+                                # EREDITÀ MORFOLOGICA (CORRETTA!)
+                                child_morphology = mutate_morphology(c1.dna_morphology, c2.dna_morphology)
                                 
                                 self.eggs.append(Egg(id=f"egg_{self.genome_id_counter}", x=egg_x, y=egg_y, genome=new_genome, neat_config=self.neat_config, morphology=child_morphology))
+                                break 
+                            else:
+                                if c1.energy > c2.energy: attacker, defender = c1, c2
+                                else: attacker, defender = c2, c1
+                                
+                                # IL MORSO DIPENDE DAL DNA (CORRETTO!)
+                                damage = 100 + (sum(1 for p in attacker.dna_morphology if p[0] == "Gastro") * 50)
+                                attacker.energy = min(800.0, attacker.energy + damage)
+                                attacker.genome.fitness += 20.0 
+                                defender.energy -= damage
+                                defender.pixels[0].x += random.uniform(-30, 30)
+                                defender.pixels[0].y += random.uniform(-30, 30)
                                 break
                 
                 # --- 6. ESTINZIONE ---
                 if len(self.creatures) == 0 and len(self.eggs) == 0:
                     self.next_generation()
                     
-                # --- 7. IL BATTITO DEL CUORE (RADAR PRESTAZIONI) ---
+                # --- 7. RADAR PRESTAZIONI ---
                 total_tick_time = (time.time() - start_tick_time) * 1000
                 if self.tick % self.tps == 0:
                     status_icon = "🟢" if total_tick_time < 16.0 else "⚠️"
@@ -290,7 +301,7 @@ class GameEngine:
             print("==================================================")
             traceback.print_exc() 
             print("==================================================")
-            self.running = False 
+            self.running = False
 
 engine = GameEngine()
 
@@ -398,7 +409,7 @@ async def get_codex(db: Session = Depends(get_db)):
             "fitness": round(s.fitness_score, 1),
             "stats": {"speed": s.speed, "diet": s.diet},
             # Riconvertiamo il testo in Array per Angular
-            "morphology": json.loads(s.morphology_json),
+            "morphology": json.loads(s.dna_morphology_json),
             "brain": json.loads(s.brain_json)
         })
     return result
@@ -477,7 +488,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                         "age": c.age,
                                         "fitness": round(c.genome.fitness, 1), 
                                         "cooldown": c.mating_cooldown,
-                                        "morphology": c.morphology,
+                                        "morphology": c.dna_morphology,
                                         "brain": {
                                             "nodes": brain_nodes,
                                             "connections": brain_conns
@@ -566,8 +577,8 @@ async def websocket_endpoint(websocket: WebSocket):
                                 user.dna_credits -= 100
                                 
                                 # ANALISI BIOLOGICA AUTOMATICA
-                                num_power = sum(1 for p in target_c.morphology if p[0] == "Power")
-                                num_gastro = sum(1 for p in target_c.morphology if p[0] == "Gastro")
+                                num_power = sum(1 for p in target_c.dna_morphology if p[0] == "Power")
+                                num_gastro = sum(1 for p in target_c.dna_morphology if p[0] == "Gastro")
                                 
                                 speed_str = "Bassa" if num_power == 0 else "Media" if num_power == 1 else "Alta" if num_power == 2 else "Estrema"
                                 diet_str = "Erbivoro" if num_power == 0 else "Carnivoro" if num_power > num_gastro else "Onnivoro"
@@ -619,7 +630,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                     fitness_score=target_c.genome.fitness,
                                     speed=speed_str,
                                     diet=diet_str,
-                                    morphology_json=json.dumps(target_c.morphology),
+                                    morphology_json=json.dumps(target_c.dna_morphology),
                                     brain_json=json.dumps(brain_data),
                                     discoverer_id=user.id
                                 )
@@ -669,14 +680,16 @@ async def websocket_endpoint(websocket: WebSocket):
                                                 "weight": conn_gene.weight
                                             })
 
+                                    # L'ERRORE ERA QUI: c.dna_morphology INVECE DI c.dna_morphology!
                                     tracked_data = {
                                         "id": c.id, 
+                                        "vitality": round(c.vitality, 1),
                                         "energy": round(c.energy, 1),
                                         "hydration": round(c.hydration, 1), 
                                         "age": c.age,
                                         "fitness": round(c.genome.fitness, 1), 
                                         "cooldown": c.mating_cooldown,
-                                        "morphology": c.morphology,
+                                        "morphology": c.dna_morphology, # CORRETTO!
                                         "brain": {
                                             "nodes": brain_nodes,
                                             "connections": brain_conns

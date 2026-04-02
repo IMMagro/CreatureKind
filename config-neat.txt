@@ -6,8 +6,8 @@ reset_on_extinction    = False
 no_fitness_termination = True
 
 [DefaultGenome]
-# Struttura Rete: 8 Sensi, 2 Muscoli
-num_inputs              = 17
+# 19 Sensi Bio-Meccanici!
+num_inputs              = 19
 num_outputs             = 2
 # FONDAMENTALE: Aggiungiamo 3 Neuroni "Nascosti" (Hidden) che faranno da Memoria Interna!
 num_hidden              = 3
