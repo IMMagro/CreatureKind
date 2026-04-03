@@ -10,10 +10,13 @@ import { Router } from '@angular/router';
   styleUrls: ['./simulation-viewer.scss']  
 })
 export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
-  
+  public dnaCredits: number = 0;
   @ViewChild('worldCanvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('previewCanvas', { static: false }) previewCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('brainCanvas', { static: false }) brainCanvasRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('fullBrainCanvas', { static: false }) fullBrainCanvasRef?: ElementRef<HTMLCanvasElement>; // IL CANVAS GIGANTE!
+  
+  public isBrainExpanded = false; 
   
   private ctx!: CanvasRenderingContext2D;
   private ws!: WebSocket;
@@ -22,23 +25,20 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
   private readonly WORLD_WIDTH = 6400;
   private readonly WORLD_HEIGHT = 3600;
 
-  // --- LA TELECAMERA ---
   private camera = { x: this.WORLD_WIDTH / 2, y: this.WORLD_HEIGHT / 2, zoom: 1.0 };
   
-  // Variabili Mouse e Strumenti
   private isDragging = false;
   private dragStartX = 0;
   private dragStartY = 0;
   public currentTool: 'inspect' | 'food' | 'smite' = 'inspect'; 
 
-  // Dati di gioco e UI
   public hudData: any = null;
   public renderedPixelsCount = 0;
   public trackedInfo: any = null;
   private trackedCreatureId: string | null = null;
   public loggedUserEmail: string = '';
   public divineError: string | null = null;
-
+  
   constructor(private router: Router, private cdr: ChangeDetectorRef) {}
 
   ngAfterViewInit(): void {
@@ -46,7 +46,6 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     this.resizeCanvas();
     this.setupCameraControls(); 
     
-    // Leggiamo chi siamo dal localStorage
     const savedUser = localStorage.getItem('user_data');
     if (savedUser) {
       this.loggedUserEmail = JSON.parse(savedUser).email;
@@ -69,11 +68,18 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     canvas.height = canvas.parentElement!.clientHeight;
   }
 
-  // --- AZIONI UI ---
   public setTool(tool: 'inspect' | 'food' | 'smite') { this.currentTool = tool; }
-  public goHome() { this.router.navigate(['/profile']); } // Modificato per tornare al profilo!
-  public closeInspection() { this.trackedCreatureId = null; this.trackedInfo = null; }
-
+  public goHome() { this.router.navigate(['/profile']); } 
+  public closeInspection() { 
+    this.trackedCreatureId = null; 
+    this.trackedInfo = null; 
+    this.isBrainExpanded = false; // Chiude anche il cervello gigante!
+  }
+  public toggleBrainExpansion() {
+    this.isBrainExpanded = !this.isBrainExpanded;
+    this.cdr.detectChanges(); // Forza Angular a mostrare o nascondere il canvas gigante
+  }
+  
   public censusCreature() {
     if (this.ws.readyState === WebSocket.OPEN && this.trackedInfo) {
       this.ws.send(JSON.stringify({ 
@@ -84,7 +90,6 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  // --- I CONTROLLI DELLA TELECAMERA ---
   private setupCameraControls() {
     const canvas = this.canvasRef.nativeElement;
 
@@ -151,9 +156,8 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     return { x: worldX, y: worldY };
   }
 
-  // --- WEBSOCKET ---
   private connectWebSocket() {
-    this.ws = new WebSocket('ws://192.168.10.139:8000/ws'); // Assicurati che l'IP sia corretto!
+    this.ws = new WebSocket('ws://192.168.10.139:8000/ws'); 
 
     this.ws.onopen = () => {
       this.loopInterval = setInterval(() => {
@@ -163,19 +167,19 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
       }, 1000 / 30);
     };
 
-    this.ws.onmessage = (event) => {
-      if (!event.data.startsWith('{')) return;
+    this.ws.onmessage = (event: MessageEvent) => {
+      if (!event.data || typeof event.data !== 'string' || !event.data.startsWith('{')) return;
       const data = JSON.parse(event.data);
 
-      // GESTIONE EVENTI SPECIALI DAL SERVER
-      if (data.type === "credit_update") {
+      // Aggiornamento crediti DNA
+      if (data.type === "credit_update" || data.dna_credits !== undefined) {
+        this.dnaCredits = data.dna_credits ?? data.credits;
         const savedUser = localStorage.getItem('user_data');
         if (savedUser) {
           let parsed = JSON.parse(savedUser);
-          parsed.dna_credits = data.credits;
+          parsed.dna_credits = this.dnaCredits;
           localStorage.setItem('user_data', JSON.stringify(parsed));
         }
-        return;
       }
 
       if (data.type === "error") {
@@ -195,7 +199,6 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
         return;
       }
 
-      // GESTIONE FOTOGRAMMA DEL MONDO
       if (data.type === "world_state" || data.pixels) {
         if (this.trackedCreatureId && !data.tracked_info) {
           this.trackedCreatureId = null;
@@ -203,7 +206,16 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
         }
 
         this.hudData = data;
-        this.trackedInfo = data.tracked_info;
+
+        if (data.tracked_info) {
+          this.trackedInfo = {
+            ...data.tracked_info,
+            lactic_acid: data.tracked_info.lactic_acid || 0,
+            heat: data.tracked_info.heat || 36,
+            is_sleeping: data.tracked_info.is_sleeping || false,
+            growth_scale: data.tracked_info.growth_scale || 1.0
+          };
+        }
         
         if (this.trackedInfo && data.pixels) {
             const trackedPixel = data.pixels.find((p: any) => p[0] === "Neuro" && p[3] === this.trackedCreatureId);
@@ -220,7 +232,10 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
         }
         
         if (this.trackedInfo && this.trackedInfo.brain) {
-          this.drawBrain(this.trackedInfo.brain);
+          this.drawBrain(this.trackedInfo.brain, this.brainCanvasRef); // Disegna nel pannello piccolo
+          if (this.isBrainExpanded) {
+            this.drawBrain(this.trackedInfo.brain, this.fullBrainCanvasRef, true); // Disegna in quello gigante!
+          }
         }
 
         this.drawWorld(data.pixels, data.water_zones);
@@ -228,88 +243,54 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     };
   }
 
-  // --- MOTORE GRAFICO ---
-  // --- MOTORE GRAFICO BLINDATO ---
   private drawWorld(pixels: any[], waterZones: any[]) {
     const canvas = this.canvasRef.nativeElement;
-    
-    // 1. Sicurezza: Se il canvas non ha dimensioni, fermati!
     if (canvas.width === 0 || canvas.height === 0) return;
-    
     this.ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
     const renderSize = Math.max(2, 10 * this.camera.zoom); 
 
-    // --- L'ACQUA FLUIDA METABALL (Con controlli di sicurezza) ---
     if (waterZones && waterZones.length > 0) {
       const waterWorldSize = 15; 
       const waterMap = new Map<string, { worldX: number, worldY: number, influence: number }>();
-
       waterZones.forEach(w => {
-        // Se manca il raggio, salta questo lago
         if (!w.radius) return; 
-
         const startX = Math.floor((w.x - w.radius) / waterWorldSize) * waterWorldSize;
         const endX = Math.ceil((w.x + w.radius) / waterWorldSize) * waterWorldSize;
         const startY = Math.floor((w.y - w.radius) / waterWorldSize) * waterWorldSize;
         const endY = Math.ceil((w.y + w.radius) / waterWorldSize) * waterWorldSize;
-
         for (let x = startX; x <= endX; x += waterWorldSize) {
           for (let y = startY; y <= endY; y += waterWorldSize) {
-            const dx = x - w.x;
-            const dy = y - w.y;
+            const dx = x - w.x; const dy = y - w.y;
             const distSquared = dx * dx + dy * dy;
             const radiusSquared = w.radius * w.radius;
-
             if (distSquared <= radiusSquared) {
               const influence = 1.0 - (distSquared / radiusSquared);
               const key = `${x}_${y}`;
-              if (waterMap.has(key)) {
-                waterMap.get(key)!.influence += influence; 
-              } else {
-                waterMap.set(key, { worldX: x, worldY: y, influence: influence });
-              }
+              if (waterMap.has(key)) waterMap.get(key)!.influence += influence; 
+              else waterMap.set(key, { worldX: x, worldY: y, influence: influence });
             }
           }
         }
       });
-
       const renderWaterSize = Math.ceil(waterWorldSize * this.camera.zoom);
-
       waterMap.forEach(block => {
         const screenPos = this.worldToScreen(block.worldX, block.worldY);
-
-        // Disegna SOLO se la dimensione è positiva (evita crash di canvas)
         if (renderWaterSize > 0) {
-           if (block.influence > 0.8) {
-             this.ctx.fillStyle = "#38bdf8"; 
-           } else if (block.influence > 0.3) {
-             this.ctx.fillStyle = "#7dd3fc"; 
-           } else {
-             this.ctx.fillStyle = "#bae6fd"; 
-           }
+           if (block.influence > 0.8) this.ctx.fillStyle = "#38bdf8"; 
+           else if (block.influence > 0.3) this.ctx.fillStyle = "#7dd3fc"; 
+           else this.ctx.fillStyle = "#bae6fd"; 
            this.ctx.fillRect(screenPos.x, screenPos.y, renderWaterSize, renderWaterSize);
         }
       });
     }
 
-    // --- I PIXEL (Creature, Piante, Biomassa) ---
     this.renderedPixelsCount = 0; 
-
     if (pixels && pixels.length > 0) {
       pixels.forEach(p => {
         let p_type = p[0], p_x = p[1], p_y = p[2]; 
-
         const screenPos = this.worldToScreen(p_x, p_y);
-
-        // VIEWPORT CULLING AMMORBIDITO: Aggiunto margine di sicurezza (+200 pixel)
-        if (screenPos.x < -200 || screenPos.x > canvas.width + 200 || 
-            screenPos.y < -200 || screenPos.y > canvas.height + 200) {
-            return; 
-        }
-
+        if (screenPos.x < -200 || screenPos.x > canvas.width + 200 || screenPos.y < -200 || screenPos.y > canvas.height + 200) return; 
         this.renderedPixelsCount++;
-
         if (p_type === "Power") this.ctx.fillStyle = "#ef4444"; 
         else if (p_type === "Gastro") this.ctx.fillStyle = "#10b981"; 
         else if (p_type === "Wood") this.ctx.fillStyle = "#78350f";
@@ -317,13 +298,8 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
         else if (p_type === "Biomass") this.ctx.fillStyle = "#64748b"; 
         else if (p_type === "Egg") this.ctx.fillStyle = "#fbbf24"; 
         else this.ctx.fillStyle = "#ffffff";
-
         this.ctx.globalAlpha = (p_type === "Biomass") ? 0.6 : 1.0;
-        
-        // Sicurezza finale per non crashare il canvas
-        if (renderSize > 0) {
-           this.ctx.fillRect(screenPos.x, screenPos.y, renderSize, renderSize);
-        }
+        if (renderSize > 0) this.ctx.fillRect(screenPos.x, screenPos.y, renderSize, renderSize);
       });
     }
     this.ctx.globalAlpha = 1.0;
@@ -332,39 +308,35 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
   private drawCreaturePreview(morphology: any[]) {
     if (!this.previewCanvasRef || !morphology) return;
     const ctx = this.previewCanvasRef.nativeElement.getContext('2d')!;
-    const width = 200; const height = 200;
-    
-    ctx.clearRect(0, 0, width, height);
-    
-    const pixelSize = 25; 
-    const centerX = width / 2;
-    const centerY = height / 2;
-
+    ctx.clearRect(0, 0, 200, 200);
+    const pixelSize = 25; const centerX = 100; const centerY = 100;
     morphology.forEach(p => {
       let p_type = p[0], p_dx = p[1], p_dy = p[2];
-      
       if (p_type === "Power") ctx.fillStyle = "#ef4444"; 
       else if (p_type === "Gastro") ctx.fillStyle = "#10b981"; 
       else if (p_type === "Neuro") ctx.fillStyle = "#3b82f6"; 
       else ctx.fillStyle = "#ffffff"; 
-      
       const drawX = centerX + (p_dx / 10) * pixelSize - (pixelSize/2);
       const drawY = centerY + (p_dy / 10) * pixelSize - (pixelSize/2);
-      
       ctx.fillRect(drawX, drawY, pixelSize, pixelSize);
       ctx.strokeStyle = "rgba(255,255,255,0.2)";
       ctx.strokeRect(drawX, drawY, pixelSize, pixelSize);
     });
   }
 
-  private drawBrain(brainData: any) {
-    if (!this.brainCanvasRef || !brainData) return;
-    const canvas = this.brainCanvasRef.nativeElement;
-    const ctx = canvas.getContext('2d')!;
+  // --- VISUALIZZATORE RETE NEURALE (SCALABILE) ---
+  private drawBrain(brainData: any, canvasRef: ElementRef<HTMLCanvasElement> | undefined, isFullscreen: boolean = false) {
+    if (!canvasRef || !brainData) return;
+    const canvas = canvasRef.nativeElement;
     
-    const width = 280;
-    const height = 250;
-    ctx.clearRect(0, 0, width, height);
+    // Se siamo in fullscreen, la tela occupa tutto lo schermo del PC!
+    if (isFullscreen) {
+      canvas.width = window.innerWidth * 0.8;
+      canvas.height = window.innerHeight * 0.8;
+    }
+    
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const nodes = brainData.nodes || [];
     const conns = brainData.connections || [];
@@ -374,14 +346,27 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
     let outputCount = 0;
     let hiddenCount = 0;
 
+    // SCALA DINAMICA: Più lo schermo è grande, più distanziamo i neuroni
+    const paddingX = isFullscreen ? canvas.width * 0.1 : 20;
+    const spacingX = isFullscreen ? (canvas.width * 0.8) / 2 : 120;
+    const inputSpacingY = isFullscreen ? (canvas.height * 0.9) / 22 : 14; // 22 input totali
+    const hiddenSpacingY = isFullscreen ? 50 : 30;
+    const outputSpacingY = isFullscreen ? 150 : 50;
+
     nodes.forEach((n: any) => {
       let x = 0, y = 0;
       if (n.id < 0) {
-        x = 20; y = 12 + (inputCount * 14); inputCount++;
+        x = paddingX; 
+        y = (isFullscreen ? canvas.height * 0.05 : 12) + (inputCount * inputSpacingY); 
+        inputCount++;
       } else if (n.id === 0 || n.id === 1) {
-        x = 260; y = 100 + (outputCount * 50); outputCount++;
+        x = paddingX + (spacingX * 2); 
+        y = (canvas.height / 2) - (outputSpacingY / 2) + (outputCount * outputSpacingY); 
+        outputCount++;
       } else {
-        x = 140; y = 80 + (hiddenCount * 30); hiddenCount++;
+        x = paddingX + spacingX; 
+        y = (canvas.height / 2) - (hiddenSpacingY * 2) + (hiddenCount * hiddenSpacingY); 
+        hiddenCount++;
       }
       nodePositions.set(n.id, {x, y});
     });
@@ -394,12 +379,18 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
         ctx.beginPath();
         ctx.moveTo(posIn.x, posIn.y);
         
-        if (posIn.x >= posOut.x) ctx.quadraticCurveTo(posIn.x + 30, posIn.y - 50, posOut.x, posOut.y);
-        else ctx.lineTo(posOut.x, posOut.y);
+        // La curva della memoria deve essere più ampia in fullscreen
+        if (posIn.x >= posOut.x) {
+            const curveOffset = isFullscreen ? 100 : 30;
+            ctx.quadraticCurveTo(posIn.x + curveOffset, posIn.y - (curveOffset*1.5), posOut.x, posOut.y);
+        } else {
+            ctx.lineTo(posOut.x, posOut.y);
+        }
         
         const absWeight = Math.abs(c.weight);
-        const thickness = Math.max(0.5, Math.min(absWeight, 2.5)); 
-        ctx.lineWidth = thickness;
+        // Fili più spessi in fullscreen!
+        const baseThickness = isFullscreen ? 2.0 : 0.5;
+        ctx.lineWidth = Math.max(baseThickness, Math.min(absWeight * (isFullscreen ? 2 : 1), isFullscreen ? 6.0 : 2.5)); 
         
         if (c.weight > 0) ctx.strokeStyle = `rgba(52, 211, 153, ${Math.min(0.2 + absWeight * 0.3, 0.9)})`; 
         else ctx.strokeStyle = `rgba(244, 63, 94, ${Math.min(0.2 + absWeight * 0.3, 0.9)})`; 
@@ -408,39 +399,61 @@ export class SimulationViewerComponent implements AfterViewInit, OnDestroy {
       }
     });
 
-    nodePositions.forEach((pos, id) => {
+    nodes.forEach((n: any) => {
+      const pos = nodePositions.get(n.id);
+      if (!pos) return;
+
       ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2); 
+      // Pallini più grandi in fullscreen!
+      const radius = isFullscreen ? 12 : 4;
+      ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2); 
       
-      if (id < 0) ctx.fillStyle = "#94a3b8"; 
-      else if (id === 0 || id === 1) { ctx.fillStyle = "#f59e0b"; ctx.shadowColor = "#f59e0b"; ctx.shadowBlur = 8; }
-      else { ctx.fillStyle = "#c084fc"; ctx.shadowColor = "#c084fc"; ctx.shadowBlur = 5; }
+      if (n.id < 0) ctx.fillStyle = "#94a3b8"; 
+      else if (n.id === 0 || n.id === 1) { ctx.fillStyle = "#f59e0b"; ctx.shadowColor = "#f59e0b"; ctx.shadowBlur = isFullscreen ? 20 : 8; }
+      else { ctx.fillStyle = "#c084fc"; ctx.shadowColor = "#c084fc"; ctx.shadowBlur = isFullscreen ? 15 : 5; }
       
       ctx.fill();
-      ctx.shadowBlur = 0; ctx.strokeStyle = "#0f172a"; ctx.lineWidth = 1; ctx.stroke();
+      ctx.shadowBlur = 0; ctx.strokeStyle = "#0f172a"; ctx.lineWidth = isFullscreen ? 3 : 1; ctx.stroke();
+
+      // IN FULLSCREEN, SCRIVIAMO ANCHE LE ETICHETTE SUI NEURONI!
+      if (isFullscreen) {
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "12px monospace";
+        if (n.id < 0) {
+            // Sensi
+            let label = `In ${n.id}`;
+            if (n.id >= -5) label = `Occhio Cibo ${n.id}`;
+            else if (n.id >= -10) label = `Occhio Nemico ${n.id+5}`;
+            else if (n.id >= -15) label = `Occhio Acqua ${n.id+10}`;
+            else if (n.id == -16) label = "Fame";
+            else if (n.id == -17) label = "Sete";
+            else if (n.id == -18) label = "Acido Lattico";
+            else if (n.id == -19) label = "Sonno";
+            else if (n.id == -20) label = "Dolore";
+            else if (n.id == -21) label = "Paura";
+            else if (n.id == -22) label = "Velocità";
+            ctx.fillText(label, pos.x - 100, pos.y + 4);
+        } else if (n.id === 0) {
+            ctx.fillText("Sterzo", pos.x + 20, pos.y + 4);
+        } else if (n.id === 1) {
+            ctx.fillText("Acceleratore", pos.x + 20, pos.y + 4);
+        }
+      }
     });
   }
 
   public onCanvasClick(event: MouseEvent) {
     if (this.ws.readyState !== WebSocket.OPEN) return;
-    const canvas = this.canvasRef.nativeElement;
-    const rect = canvas.getBoundingClientRect();
-    const clickX = event.clientX - rect.left;
-    const clickY = event.clientY - rect.top;
-
-    const worldPos = this.screenToWorld(clickX, clickY);
-
+    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+    const wPos = this.screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
     if (event.button === 0 && !this.isDragging) { 
       if (this.currentTool === 'inspect') {
-        this.trackedCreatureId = null;
-        this.trackedInfo = null;
-        this.ws.send(JSON.stringify({ action: "inspect", x: worldPos.x, y: worldPos.y }));
-      } 
-      else if (this.currentTool === 'food') {
-        this.ws.send(JSON.stringify({ action: "spawn_food", x: worldPos.x, y: worldPos.y, user_email: this.loggedUserEmail }));
-      }
-      else if (this.currentTool === 'smite') {
-        this.ws.send(JSON.stringify({ action: "smite_plant", x: worldPos.x, y: worldPos.y, user_email: this.loggedUserEmail }));
+        this.trackedCreatureId = null; this.trackedInfo = null;
+        this.ws.send(JSON.stringify({ action: "inspect", x: wPos.x, y: wPos.y }));
+      } else if (this.currentTool === 'food') {
+        this.ws.send(JSON.stringify({ action: "spawn_food", x: wPos.x, y: wPos.y, user_email: this.loggedUserEmail }));
+      } else if (this.currentTool === 'smite') {
+        this.ws.send(JSON.stringify({ action: "smite_plant", x: wPos.x, y: wPos.y, user_email: this.loggedUserEmail }));
       }
     } 
   }

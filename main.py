@@ -72,7 +72,7 @@ class GameEngine:
     def __init__(self):
         self.tick = 0
         self.running = False
-        self.tps =30
+        self.tps =300
         self.world = ToroidalSpace(width=6400, height=3600)
         self.spatial_grid = SpatialGrid(6400, 3600, 150.0)
         self.flora = []
@@ -196,14 +196,18 @@ class GameEngine:
                 for b_pixel in self.biomass:
                     self.spatial_grid.insert(b_pixel)
                 
-                # --- 2. AGGIORNAMENTO PIANTE ---
+                # --- 2. AGGIORNAMENTO PIANTE (CAP A 2000 PIXEL GLOBALI) ---
                 new_spores, surviving_flora = [], []
+                
+                # Contiamo i pixel delle foglie ADESSO!
                 total_plant_pixels = sum(len(p.pixels) for p in self.flora)
                 
                 for plant in self.flora:
-                    spore = plant.update(self.world)
+                    # PASSIAMO IL NUMERO ALLA PIANTA COSÌ SA SE PUÒ CRESCERE!
+                    spore = plant.update(self.world, total_plant_pixels)
                     
-                    if spore and len(self.flora) < 250 and total_plant_pixels < 5000: 
+                    # Le spore germogliano SOLO se le piante sono meno di 80 e le foglie meno di 2000!
+                    if spore and len(self.flora) < 80 and total_plant_pixels < 2000: 
                         near_w, in_w = check_water_for_plant(spore.pixels[0].x, spore.pixels[0].y, self.water_zones, self.world)
                         spore.is_near_water = near_w
                         spore.is_in_water = in_w
@@ -424,7 +428,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 try:
                     command = json.loads(data_str)
                     
-                    # 1. ISPEZIONE
                     if command.get("action") == "inspect":
                         click_x, click_y = command["x"], command["y"]
                         closest, min_dist = None, 150.0
@@ -436,84 +439,33 @@ async def websocket_endpoint(websocket: WebSocket):
                         if closest:
                             await websocket.send_json({"type": "tracking_id", "id": closest.id})
 
-                    # 2. MIRACOLO DIVINO (CIBO)
-                    # 4. AGGIORNAMENTO DATI MONDO
-                    elif command.get("action") == "req":
-                        all_pixels = []
+                    elif command.get("action") == "spawn_food":
+                        user_email = command.get("user_email")
+                        if not user_email: continue
                         
-                        # --- RACCOLTA PIXEL SICURA ---
-                        for plant in engine.flora:
-                            if plant and plant.pixels:
-                                for p in plant.pixels: 
-                                    all_pixels.append([p.type, int(p.x), int(p.y)])
-                                    
-                        for p in engine.biomass: 
-                            if p: all_pixels.append([p.type, int(p.x), int(p.y)])
+                        db = SessionLocal()
+                        user = db.query(User).filter(User.email == user_email).first()
+                        
+                        if user and user.dna_credits >= 5:
+                            user.dna_credits -= 5
+                            db.commit()
+                            safe_username = user.username
+                            safe_credits = user.dna_credits
+                            db.close()
                             
-                        for creature in engine.creatures:
-                            if creature and creature.pixels:
-                                for p in creature.pixels: 
-                                    all_pixels.append([p.type, int(p.x), int(p.y), creature.id])
-                                    
-                        for egg in engine.eggs:
-                            if egg and egg.pixels:
-                                for p in egg.pixels: 
-                                    all_pixels.append([p.type, int(p.x), int(p.y)])
+                            drop_x, drop_y = command["x"], command["y"]
+                            print(f"⚡ MIRACOLO di {safe_username}! (-5 DNA). Rimasti: {safe_credits}")
+                            
+                            for _ in range(5):
+                                offset_x, offset_y = random.uniform(-15, 15), random.uniform(-15, 15)
+                                engine.biomass.append(Pixel(id=f"divine_{engine.tick}_{_}", x=drop_x+offset_x, y=drop_y+offset_y, pixel_type="Biomass"))
+                            engine.flora.append(Plant(id=f"miracle_{engine.tick}", start_x=drop_x, start_y=drop_y, is_near_water=False, is_in_water=False))
+                            
+                            await websocket.send_json({"type": "credit_update", "credits": safe_credits})
+                        else:
+                            db.close()
+                            await websocket.send_json({"type": "error", "message": "Punti DNA Insufficienti!"})
 
-                        # --- TRACCIAMENTO E LETTURA DEL CERVELLO ---
-                        tracked_data = None
-                        tracked_id = command.get("track_id")
-                        if tracked_id:
-                            for c in engine.creatures:
-                                if c.id == tracked_id:
-                                    brain_nodes = []
-                                    brain_conns = []
-                                    
-                                    for node_id, node_gene in c.genome.nodes.items():
-                                        brain_nodes.append({"id": node_id, "bias": node_gene.bias})
-                                        
-                                    for conn_key, conn_gene in c.genome.connections.items():
-                                        if conn_gene.enabled: 
-                                            brain_conns.append({
-                                                "in": conn_key[0], 
-                                                "out": conn_key[1], 
-                                                "weight": conn_gene.weight
-                                            })
-
-                                    tracked_data = {
-                                        "id": c.id, 
-                                        "energy": round(c.energy, 1),
-                                        "hydration": round(c.hydration, 1), 
-                                        "vitality": c.vitality,
-                                        "age": c.age,
-                                        "fitness": round(c.genome.fitness, 1), 
-                                        "cooldown": c.mating_cooldown,
-                                        "morphology": c.dna_morphology,
-                                        "brain": {
-                                            "nodes": brain_nodes,
-                                            "connections": brain_conns
-                                        }
-                                    }
-                                    break
-
-                        # --- INVIO AL BROWSER ---
-                        # Aggiungiamo un print di debug solo per vedere se arriva qui!
-                        # print(f"Inviando {len(all_pixels)} pixel ad Angular...")
-                        
-                        await websocket.send_json({
-                            "type": "world_state",
-                            "water_zones": engine.water_zones,
-                            "tick": engine.tick,
-                            "generation": engine.generation,
-                            "plants_count": len(engine.flora),
-                            "biomass_count": len(engine.biomass),
-                            "creatures_count": len(engine.creatures),
-                            "eggs_count": len(engine.eggs),
-                            "pixels": all_pixels,
-                            "tracked_info": tracked_data 
-                        })
-
-                    # 3. PUNIZIONE DIVINA (FULMINE)
                     elif command.get("action") == "smite_plant":
                         user_email = command.get("user_email")
                         if not user_email: continue
@@ -548,17 +500,16 @@ async def websocket_endpoint(websocket: WebSocket):
                         else:
                             db.close()
                             await websocket.send_json({"type": "error", "message": "Punti DNA Insufficienti!"})
-                    # 4. CENSIMENTO SCIENTIFICO (COSTA 100 PUNTI DNA)
+                            
                     elif command.get("action") == "census":
                         user_email = command.get("user_email")
-                        creature_id = command.get("target_id") # Angular ci dice CHI censire
+                        creature_id = command.get("target_id")
                         if not user_email or not creature_id: continue
                         
                         db = SessionLocal()
                         user = db.query(User).filter(User.email == user_email).first()
                         
                         if user and user.dna_credits >= 100:
-                            # Cerchiamo la creatura viva nel motore
                             target_c = None
                             for c in engine.creatures:
                                 if c.id == creature_id:
@@ -566,17 +517,15 @@ async def websocket_endpoint(websocket: WebSocket):
                                     break
                                     
                             if target_c:
-                                # Controlliamo che non esista già una creatura con questo ID nel DB
                                 existing = db.query(DiscoveredSpecies).filter(DiscoveredSpecies.species_name == target_c.id).first()
                                 if existing:
                                     db.close()
                                     await websocket.send_json({"type": "error", "message": "Specie già catalogata!"})
                                     continue
                                 
-                                # PAGAMENTO
                                 user.dna_credits -= 100
                                 
-                                # ANALISI BIOLOGICA AUTOMATICA
+                                # IL FIX DEL CENSIMENTO ERA QUI: target_c.dna_morphology
                                 num_power = sum(1 for p in target_c.dna_morphology if p[0] == "Power")
                                 num_gastro = sum(1 for p in target_c.dna_morphology if p[0] == "Gastro")
                                 
@@ -584,22 +533,16 @@ async def websocket_endpoint(websocket: WebSocket):
                                 diet_str = "Erbivoro" if num_power == 0 else "Carnivoro" if num_power > num_gastro else "Onnivoro"
                                 type_str = "Predatore" if num_power >= 2 else "Spazzino" if num_power == 1 else "Prede"
                                 
-                               # --- ESTRAZIONE SICURA DEL CERVELLO ---
                                 brain_nodes = [{"id": n, "bias": g.bias} for n, g in target_c.genome.nodes.items()]
-                                
-                                # Raccogliamo tutti gli ID validi (Sensi -1 a -17, Muscoli 0 e 1, e Nascosti)
                                 valid_node_ids = set([n["id"] for n in brain_nodes])
-                                # Aggiungiamo manualmente gli input visivi perché in NEAT a volte non appaiono in genome.nodes finché non mutano!
                                 for i in range(-1, -18, -1):
                                     valid_node_ids.add(i)
-                                    # Se il senso non c'è nei nodi, lo aggiungiamo graficamente per l'Olo-Simulatore!
                                     if not any(n["id"] == i for n in brain_nodes):
                                         brain_nodes.append({"id": i, "bias": 0.0})
 
                                 brain_conns = []
                                 for conn_key, conn_gene in target_c.genome.connections.items():
                                     if conn_gene.enabled: 
-                                        # IL CEROTTO: Salva la sinapsi SOLO se entrambi i neuroni esistono!
                                         if conn_key[0] in valid_node_ids and conn_key[1] in valid_node_ids:
                                             brain_conns.append({
                                                 "in": conn_key[0], 
@@ -609,19 +552,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
                                 brain_data = {"nodes": brain_nodes, "connections": brain_conns}
 
-                                # STORIA GENERATA PROCEDURALMENTE
-                                lore = f"Scoperta alla Generazione {engine.generation} da {user.username}. "
-                                lore += f"Ha raggiunto un picco evolutivo di {round(target_c.genome.fitness, 1)} Fitness. "
-                                lore += f"Presenta {num_power} tessuti muscolari e {num_gastro} apparati digestivi."
-                                
-                                # ... (il salvataggio nel database DiscoveredSpecies rimane uguale sotto) ...
-
-                                # STORIA GENERATA PROCEDURALMENTE
                                 lore = f"Scoperta alla Generazione {engine.generation} da {user.username}. "
                                 lore += f"Ha raggiunto un picco evolutivo di {round(target_c.genome.fitness, 1)} Fitness. "
                                 lore += f"Presenta {num_power} tessuti muscolari e {num_gastro} apparati digestivi."
 
-                                # SALVIAMO NEL DATABASE!
                                 new_species = DiscoveredSpecies(
                                     species_name=target_c.id,
                                     type=type_str,
@@ -630,7 +564,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                     fitness_score=target_c.genome.fitness,
                                     speed=speed_str,
                                     diet=diet_str,
-                                    morphology_json=json.dumps(target_c.dna_morphology),
+                                    morphology_json=json.dumps(target_c.dna_morphology), # IL SECONDO FIX DEL CENSIMENTO!
                                     brain_json=json.dumps(brain_data),
                                     discoverer_id=user.id
                                 )
@@ -649,7 +583,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         else:
                             db.close()
                             await websocket.send_json({"type": "error", "message": "Punti DNA Insufficienti (100 richiesti)!"})
-                    # 4. AGGIORNAMENTO DATI MONDO
+                            
                     elif command.get("action") == "req":
                         all_pixels = []
                         for plant in engine.flora:
@@ -680,7 +614,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                                 "weight": conn_gene.weight
                                             })
 
-                                    # L'ERRORE ERA QUI: c.dna_morphology INVECE DI c.dna_morphology!
+                                    # IL TERZO FIX DELL'ISPEZIONE
                                     tracked_data = {
                                         "id": c.id, 
                                         "vitality": round(c.vitality, 1),
@@ -689,7 +623,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                         "age": c.age,
                                         "fitness": round(c.genome.fitness, 1), 
                                         "cooldown": c.mating_cooldown,
-                                        "morphology": c.dna_morphology, # CORRETTO!
+                                        "morphology": c.dna_morphology, 
                                         "brain": {
                                             "nodes": brain_nodes,
                                             "connections": brain_conns

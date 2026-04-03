@@ -1,184 +1,179 @@
 <div class="simulation-container">
   
-  <div id="hud" *ngIf="hudData">
-    <b>CreatureKind Evoluzione</b><br>
-    <hr>
-    🧬 Gen: <b>{{ hudData.generation }}</b> | ⏳ Tick: {{ hudData.tick }}<br><br>
-    🌿 Piante: {{ hudData.plants_count }} | 🪨 Biomassa: {{ hudData.biomass_count }}<br>
-    🦠 Creature: {{ hudData.creatures_count }} | 🥚 Uova: <span class="gold">{{ hudData.eggs_count }}</span>
-    <br><br>
-    <!-- IL NUOVO RADAR DELLE PRESTAZIONI -->
-    <span style="color: #94a3b8; font-size: 0.85rem;">
-      🖥️ Pixel a schermo (Culling): <b style="color: #38bdf8;">{{ renderedPixelsCount }}</b> / {{ hudData.pixels.length }}
-    </span>
-  </div>
-  <div *ngIf="divineError" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(244,63,94,0.9); color: white; padding: 10px 20px; border-radius: 8px; z-index: 1000; font-weight: bold; box-shadow: 0 0 20px rgba(244,63,94,0.5);">
-    ⚠️ {{ divineError }}
-  </div>
-  
-  <!-- IL NUOVO PULSANTE DI USCITA -->
-  <button class="btn-exit" (click)="goHome()">
-    [ TERMINA OSSERVAZIONE ]
-  </button>
-  <button class="btn-exit" (click)="goHome()">
-    [ TERMINA OSSERVAZIONE ]
-  </button>
-
-  <!-- LA NUOVA TOOLBAR DIVINA -->
-  <div class="divine-toolbar">
-    <button class="tool-btn" [class.active]="currentTool === 'inspect'" (click)="setTool('inspect')" title="Ispeziona Creatura (Gratis)">
-      🔍
-    </button>
-    <button class="tool-btn" [class.active]="currentTool === 'food'" (click)="setTool('food')" title="Spawna Cibo (Costa 5 DNA)">
-      🍖
-    </button>
-    <button class="tool-btn" [class.active]="currentTool === 'smite'" (click)="setTool('smite')" title="Brucia Pianta (Costa 5 DNA)">
-      🌩️
-    </button>
-  </div>
-
+  <!-- IL MONDO 3D (Sotto a tutto) -->
   <canvas #worldCanvas [ngClass]="'tool-' + currentTool" (mousedown)="onCanvasClick($event)" (contextmenu)="$event.preventDefault()"></canvas>
- <!-- L'HUD BASE (Solo Statistiche Globali) -->
-  <div id="hud" *ngIf="hudData">
-    <b>CreatureKind Evoluzione</b><br>
-    <hr>
-    🧬 Gen: <b>{{ hudData.generation }}</b> | ⏳ Tick: {{ hudData.tick }}<br><br>
-    🌿 Piante: {{ hudData.plants_count }} | 🪨 Biomassa: {{ hudData.biomass_count }}<br>
-    🦠 Creature: {{ hudData.creatures_count }} | 🥚 Uova: <span class="gold">{{ hudData.eggs_count }}</span>
-  </div>
-  
-  <button class="btn-exit" (click)="goHome()">
-    [ TERMINA OSSERVAZIONE ]
+
+  <!-- ERRORE DIVINO (Toast) -->
+  <div class="error-toast" *ngIf="divineError">⚠️ {{ divineError }}</div>
+
+  <!-- PULSANTE USCITA -->
+  <button class="btn-exit" (click)="goHome()" *ngIf="!trackedInfo">
+    <span class="icon">⏏</span> Esci dal Simulatore
   </button>
 
-  <!-- IL MONDO 3D -->
-  <canvas #worldCanvas (mousedown)="onCanvasClick($event)" (contextmenu)="$event.preventDefault()"></canvas>
-
-  <!-- IL NUOVO MODAL DI ISPEZIONE (Appare solo se abbiamo agganciato qualcuno) -->
-  <div class="inspection-modal-overlay" *ngIf="trackedInfo">
-    <div class="inspection-modal">
+  <!-- ========================================== -->
+  <!-- PLANCIA DI COMANDO SINISTRA (HUD + STRUMENTI) -->
+  <!-- ========================================== -->
+  <div class="left-command-center" *ngIf="hudData">
+    
+    <!-- 1. HUD Dati Globali -->
+    <div class="glass-panel global-stats">
+      <div class="panel-header">
+        <span class="title">CreatureKind V1.0</span>
+        <span class="dna-badge">🧬 {{ dnaCredits }} DNA</span>
+      </div>
+      <div class="time-box">
+        <span class="gen">Era {{ hudData.generation }}</span>
+        <span class="tick">Tick {{ hudData.tick }}</span>
+      </div>
       
-      <!-- Pulsante per chiudere l'ispezione -->
-      <button class="close-btn" (click)="closeInspection()">✕</button>
+      <div class="stats-grid-2x2">
+        <div class="s-box"><div class="val">{{ hudData.plants_count }}</div><div class="lbl">🌿 Flora</div></div>
+        <div class="s-box"><div class="val">{{ hudData.biomass_count }}</div><div class="lbl">🪨 Biomassa</div></div>
+        <div class="s-box"><div class="val">{{ hudData.creatures_count }}</div><div class="lbl">🦠 Creature</div></div>
+        <div class="s-box"><div class="val gold">{{ hudData.eggs_count }}</div><div class="lbl">🥚 Uova</div></div>
+      </div>
       
-      <div class="modal-content">
-        
-        <!-- PARTE SINISTRA: L'Immagine Ingrandita della Creatura -->
-        <div class="creature-preview">
-          <!-- Questo Canvas servirà a disegnare SOLO la creatura gigante -->
-          <canvas #previewCanvas width="200" height="200"></canvas>
-          <div class="status-badge" [class.dead]="trackedInfo.energy <= 0">
-            {{ trackedInfo.energy > 0 ? 'VIVA' : 'DECEDUTA' }}
-          </div>
-        </div>
+      <div class="culling-info">
+        🖥️ Rendeing: <b class="blue">{{ renderedPixelsCount }}</b> / {{ hudData.pixels.length }} px
+      </div>
+    </div>
 
-        <!-- PARTE DESTRA: Le Statistiche Vitali -->
-        <!-- IL NUOVO PANNELLO ISPEZIONE (Compatto e Laterale) -->
+    <!-- 2. La Toolbar Divina -->
+    <div class="glass-panel tools-panel">
+      <span class="panel-subtitle">Strumenti Architetto</span>
+      <div class="tools-row">
+        <button class="tool-btn" [class.active]="currentTool === 'inspect'" (click)="setTool('inspect')" title="Ispeziona (Gratis)">
+          <span class="t-icon">🔍</span>
+          <span class="t-label">Analisi</span>
+        </button>
+        <button class="tool-btn" [class.active]="currentTool === 'food'" (click)="setTool('food')" title="Spawna Cibo (5 DNA)">
+          <span class="t-icon">🍖</span>
+          <span class="t-label">Nutri</span>
+        </button>
+        <button class="tool-btn" [class.active]="currentTool === 'smite'" (click)="setTool('smite')" title="Distruggi Pianta (5 DNA)">
+          <span class="t-icon">🌩️</span>
+          <span class="t-label">Punizione</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ========================================== -->
+  <!-- PANNELLO ISPEZIONE DESTRA (Soggetto Singolo) -->
+  <!-- ========================================== -->
   <div class="inspection-panel" *ngIf="trackedInfo">
-    <div class="panel-header">
-      <h2>Soggetto: <span class="blue">{{ trackedInfo.id }}</span></h2>
+    
+    <div class="inspect-header">
+      <div class="subject-title">
+        <span class="label">SOGGETTO SOTTO OSSERVAZIONE</span>
+        <h2 class="blue">ID #{{ trackedInfo.id }}</h2>
+      </div>
       <button class="close-btn" (click)="closeInspection()">✕</button>
     </div>
-    
-    <div class="panel-body">
-      <!-- Immagine Vera -->
-      <div class="preview-box">
-        <canvas #previewCanvas width="150" height="150"></canvas>
-        <span class="status" [class.dead]="trackedInfo.energy <= 0">
-          {{ trackedInfo.energy > 0 ? 'VIVO' : 'MORTO' }}
-        </span>
-      </div>
 
-      <!-- Statistiche (Barre Piccole) -->
-      <div class="stats-list">
-        <div class="stat-item">
-          <div class="stat-top"><span>⚡ Energia</span> <span>{{ trackedInfo.energy | number:'1.0-0' }}</span></div>
-          <div class="bar-bg"><div class="bar-fill bg-orange" [style.width.%]="(trackedInfo.energy / 1500) * 100"></div></div>
-        </div>
-        
-        <div class="stat-item">
-          <div class="stat-top"><span>💧 Idratazione</span> <span>{{ trackedInfo.hydration | number:'1.0-0' }}</span></div>
-          <div class="bar-bg"><div class="bar-fill bg-blue" [style.width.%]="(trackedInfo.hydration / 1000) * 100"></div></div>
-        </div>
+    <!-- Pulsante Censimento -->
+    <button class="census-btn" (click)="censusCreature()">
+      <span class="icon">📥</span> Archivia nel Codex (100 DNA)
+    </button>
 
-        <div class="stat-item">
-          <div class="stat-top"><span>🧠 Fitness</span> <span class="purple">{{ trackedInfo.fitness | number:'1.1-1' }}</span></div>
-        </div>
-
-        <div class="stat-item">
-          <div class="stat-top"><span>⏳ Età</span> <span>{{ trackedInfo.age || 0 }} Tick</span></div>
-        </div>
-
-        <div class="stat-item">
-          <div class="stat-top">
-            <span>💞 Stato</span> 
-            <span [class.ready]="trackedInfo.cooldown === 0" [class.cooldown]="trackedInfo.cooldown > 0">
-              {{ trackedInfo.cooldown === 0 ? 'Fertile' : 'In Cooldown' }}
+    <div class="inspect-scroll-area">
+      
+      <!-- SEZIONE 1: Morfologia (La Foto) -->
+      <div class="card-section">
+        <div class="preview-box">
+          <canvas #previewCanvas width="150" height="150"></canvas>
+          
+          <!-- Badge di Stato Intelligenti -->
+          <div class="status-tags">
+            <span class="pill" [class.dead]="trackedInfo.energy <= 0" [class.alive]="trackedInfo.energy > 0 && !trackedInfo.is_sleeping" [class.sleeping]="trackedInfo.is_sleeping">
+              {{ trackedInfo.is_sleeping ? '💤 SONNO' : (trackedInfo.energy > 0 ? '🟢 VIVO' : '💀 DECESSO') }}
+            </span>
+            <span class="pill" [class.danger]="trackedInfo.vitality < 30" *ngIf="trackedInfo.vitality > 0">
+              ❤️ {{ trackedInfo.vitality | number:'1.0-0' }}%
             </span>
           </div>
         </div>
       </div>
-    </div>
-    <!-- IL NUOVO PANNELLO ISPEZIONE (Compatto e Laterale) -->
-  <div class="inspection-panel" *ngIf="trackedInfo">
-    <div class="panel-header">
-      <h2>Soggetto: <span class="blue">{{ trackedInfo.id }}</span></h2>
-      <button class="close-btn" (click)="closeInspection()">✕</button>
-    </div>
-    
-    <!-- IL NUOVO BOTTONE DI CENSIMENTO! -->
-    <button class="census-btn" (click)="censusCreature()" style="width: 100%; margin-bottom: 15px; background: rgba(251, 191, 36, 0.1); border: 1px solid #fbbf24; color: #fbbf24; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;">
-      🏷️ Censisci nel Codex (100 DNA)
-    </button>
-    
-    <!-- Aggiungiamo uno scroll interno se il pannello diventa troppo alto -->
-    <div class="panel-body" style="max-height: calc(100vh - 120px); overflow-y: auto;">
-      
-      <!-- Immagine Vera -->
-      <div class="preview-box">
-        <canvas #previewCanvas width="150" height="150"></canvas>
-        <span class="status" [class.dead]="trackedInfo.energy <= 0">
-          {{ trackedInfo.energy > 0 ? 'VIVO' : 'MORTO' }}
-        </span>
+
+      <!-- SEZIONE 2: Dati Omeostatici (Le Barre) -->
+      <div class="card-section">
+        <h3 class="section-title">Parametri Omeostatici</h3>
+        <div class="bars-container">
+          
+          <div class="bar-group">
+            <div class="bar-labels"><span>⚡ Riserve Energetiche</span> <span>{{ trackedInfo.energy | number:'1.0-0' }}</span></div>
+            <div class="bar-bg"><div class="bar-fill bg-orange" [style.width.%]="(trackedInfo.energy / 1500) * 100"></div></div>
+          </div>
+          
+          <div class="bar-group">
+            <div class="bar-labels"><span>💧 Idratazione</span> <span>{{ trackedInfo.hydration | number:'1.0-0' }}</span></div>
+            <div class="bar-bg"><div class="bar-fill bg-blue" [style.width.%]="(trackedInfo.hydration / 1000) * 100"></div></div>
+          </div>
+          
+          <div class="mini-bars-row">
+            <div class="bar-group mini">
+              <div class="bar-labels"><span>🧪 Acido Lattico</span></div>
+              <div class="bar-bg"><div class="bar-fill bg-purple" [style.width.%]="trackedInfo.lactic_acid"></div></div>
+            </div>
+            <div class="bar-group mini">
+              <div class="bar-labels"><span>🔥 Temperatura</span></div>
+              <div class="bar-bg"><div class="bar-fill bg-red" [style.width.%]="(trackedInfo.heat - 34) * 10"></div></div>
+            </div>
+          </div>
+
+        </div>
       </div>
 
-      <!-- Statistiche (Barre Piccole) -->
-      <div class="stats-list">
-        <div class="stat-item">
-          <div class="stat-top"><span>❤️ Vitalità (Salute)</span> <span>{{ trackedInfo.vitality | number:'1.0-0' }}%</span></div>
-          <div class="bar-bg"><div class="bar-fill bg-red" [style.width.%]="trackedInfo.vitality"></div></div>
+      <!-- SEZIONE 3: Dati Genetici -->
+      <div class="card-section">
+        <h3 class="section-title">Analisi Genetica</h3>
+        <div class="data-list">
+          <div class="d-row"><span>Intelligenza (Fitness)</span> <b class="purple">{{ trackedInfo.fitness | number:'1.1-1' }}</b></div>
+          <div class="d-row"><span>Età Cellulare</span> <b>{{ trackedInfo.age }} Tick</b></div>
+          <div class="d-row"><span>Sviluppo Morfologico</span> <b>{{ (trackedInfo.growth_scale * 100) | number:'1.0-0' }}%</b></div>
         </div>
-        <div class="stat-item">
-          <div class="stat-top"><span>⚡ Energia (Fame)</span> <span>{{ trackedInfo.energy | number:'1.0-0' }}</span></div>
-          <div class="bar-bg"><div class="bar-fill bg-orange" [style.width.%]="(trackedInfo.energy / 1500) * 100"></div></div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-top"><span>💧 Idratazione (Sete)</span> <span>{{ trackedInfo.hydration | number:'1.0-0' }}</span></div>
-          <div class="bar-bg"><div class="bar-fill bg-blue" [style.width.%]="(trackedInfo.hydration / 1000) * 100"></div></div>
-        </div>
-        <div class="stat-item"><div class="stat-top"><span>🧠 Fitness</span> <span class="purple">{{ trackedInfo.fitness | number:'1.1-1' }}</span></div></div>
-        <div class="stat-item"><div class="stat-top"><span>⏳ Età</span> <span>{{ trackedInfo.age || 0 }} Tick</span></div></div>
       </div>
 
-      <!-- LA NUOVA SEZIONE: IL CERVELLO (NEAT) -->
+      <!-- LA SEZIONE: IL CERVELLO (Elettroencefalogramma) -->
       <div class="brain-section" *ngIf="trackedInfo.brain">
         <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0 15px 0;">
-        <h3 style="margin: 0 0 10px 0; font-size: 0.9rem; color: #94a3b8; text-transform: uppercase;">Topologia Neurale</h3>
-        
-        <div class="brain-box" style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 10px; border: 1px solid rgba(255,255,255,0.05); overflow-y: hidden;">
-          <!-- IL FIX È QUI: HEIGHT 250! -->
-          <canvas #brainCanvas width="480" height="280" style="width: 100%; display: block;"></canvas>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h3 style="margin: 0; font-size: 0.9rem; color: #94a3b8; text-transform: uppercase;">Topologia Neurale</h3>
+          <!-- IL PULSANTE DI ESPANSIONE -->
+          <button (click)="toggleBrainExpansion()" style="background: rgba(56,189,248,0.2); border: 1px solid #38bdf8; color: #38bdf8; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 0.7rem; font-weight: bold;">
+            ⛶ ESPANDI
+          </button>
         </div>
         
-        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 5px;">
-          <span>Sensi (In)</span><span>Nascosti</span><span>Muscoli (Out)</span>
+        <div class="brain-box">
+          <canvas #brainCanvas width="260" height="250"></canvas>
         </div>
       </div>
 
     </div>
   </div>
-  </div>
+
+  <!-- ========================================== -->
+  <!-- IL MODAL DEL CERVELLO GIGANTE (FULLSCREEN) -->
+  <!-- ========================================== -->
+  <div class="brain-fullscreen-overlay" *ngIf="isBrainExpanded">
+    <div class="brain-fullscreen-modal">
+      <div class="fs-header">
+        <h2>Elettroencefalogramma Dettagliato: <span class="blue">Soggetto #{{ trackedInfo?.id }}</span></h2>
+        <button class="close-btn" (click)="toggleBrainExpansion()">✕</button>
+      </div>
+      
+      <div class="fs-canvas-container">
+        <!-- IL CANVAS GIGANTE! -->
+        <canvas #fullBrainCanvas></canvas>
+      </div>
+      
+      <div class="fs-footer">
+        <p>I nodi grigi sono i sensori. Le linee <span style="color:#34d399">VERDI</span> eccitano il muscolo, le linee <span style="color:#f43f5e">ROSSE</span> lo frenano. I nodi viola sono la memoria (Loop). Lo spessore indica la forza (Weight) della sinapsi.</p>
       </div>
     </div>
   </div>
+
 </div>

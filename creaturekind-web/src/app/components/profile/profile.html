@@ -1,6 +1,6 @@
 <div class="profile-layout">
 
-  <!-- Sfondo Globale in Stile Xtract -->
+  <!-- Sfondo Globale -->
   <div class="glow-bg">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
@@ -9,62 +9,72 @@
 
   <div class="profile-container">
     
-    <!-- Intestazione Profilo -->
+    <!-- HEADER E WALLET -->
     <header class="profile-header fade-up">
       <div class="header-left">
         <div class="avatar-large">{{ user.name.charAt(0) | uppercase }}</div>
         <div class="user-details">
-          <h1>Identità: <span class="gradient-text">{{ user.name }}</span></h1>
-          <p class="email">{{ user.email }} • Connessione Stabilita: {{ user.joinDate }}</p>
-          <span class="plan-badge">{{ user.plan }} Access</span>
+          <h1>Benvenuto, <span class="gradient-text">{{ user.name }}</span></h1>
+          <div class="status-row">
+            <span class="email">{{ user.email }}</span>
+            <span class="dot-separator">•</span>
+            <span class="join-date">Connesso: {{ user.joinDate }}</span>
+          </div>
+          <div class="badges-row">
+            <span class="plan-badge">{{ user.plan }} Access</span>
+            <button class="logout-btn" (click)="logout()">Disconnetti 🚪</button>
+          </div>
         </div>
       </div>
 
+      <!-- IL NUOVO DNA WALLET -->
       <div class="header-right">
-        <div class="credits-box">
-          <span class="label">Punti Genoma (DNA)</span>
-          <button class="upgrade-btn" (click)="rechargeCredits()">Ricarica 100 DNA</button>
-          <span class="value">{{ user.credits }}</span>
+        <div class="dna-wallet">
+          <div class="wallet-header">
+            <span class="label">Punti Genoma (DNA)</span>
+            <span class="icon">🧬</span>
+          </div>
+          <div class="wallet-value">{{ user.credits }}</div>
+          <button class="upgrade-btn" (click)="rechargeCredits()">+ Estrai 100 DNA</button>
         </div>
-        <!-- IL PULSANTE DI LANCIO AL MONDO 3D -->
-        <button class="launch-btn" (click)="enterWorld()">
-          [ AVVIA MOTORE NEURALE ]
-        </button>
-        <button class="logout-btn" (click)="logout()">Disconnetti 🚪</button>
       </div>
     </header>
 
-    <!-- Statistiche del Server Globale in Tempo Reale -->
+    <!-- CALL TO ACTION GIGANTE -->
+    <div class="cta-section fade-up delay-1">
+      <button class="launch-btn pulse-glow" (click)="enterWorld()">
+        <span class="icon">🌍</span>
+        [ AVVIA MOTORE NEURALE ]
+      </button>
+    </div>
+
+    <!-- STATISTICHE SERVER GLOBALE -->
     <section class="stats-section fade-up delay-1">
       <h2>Stato Globale dell'Ecosistema <span class="status-dot"></span></h2>
-      
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="icon">🧬</div>
+          <div class="icon-box blue-glow">🧬</div>
           <div class="info">
             <span class="title">Generazione Era</span>
             <span class="number">{{ serverStats.totalGenerations }}</span>
           </div>
         </div>
-        
         <div class="stat-card">
-          <div class="icon">🧠</div>
+          <div class="icon-box green-glow">🧠</div>
           <div class="info">
             <span class="title">Picco di Fitness</span>
-            <span class="number text-green">{{ serverStats.maxFitnessReached }}</span>
+            <span class="number text-green">{{ serverStats.maxFitnessReached | number:'1.0-0' }}</span>
           </div>
         </div>
-
         <div class="stat-card">
-          <div class="icon">💀</div>
+          <div class="icon-box red-glow">💀</div>
           <div class="info">
             <span class="title">Eventi di Estinzione</span>
             <span class="number text-red">{{ serverStats.extinctionEvents }}</span>
           </div>
         </div>
-
         <div class="stat-card">
-          <div class="icon">⏱️</div>
+          <div class="icon-box gray-glow">⏱️</div>
           <div class="info">
             <span class="title">Uptime Server</span>
             <span class="number">{{ serverStats.uptime }}</span>
@@ -73,23 +83,103 @@
       </div>
     </section>
 
-    <!-- I Moduli dell'Account -->
+    <!-- I MODULI -->
     <section class="action-section fade-up delay-2">
       <h2>Moduli Accessibili</h2>
       <div class="modules-grid">
-        <div class="module-card active" (click)="enterWorld()">
-          <div class="module-icon">🌍</div>
-          <h4>Esplorazione Toroidale</h4>
-          <p>Entra nel simulatore. Ispeziona le creature, osserva i cervelli dal vivo e lancia cibo divino dal cielo.</p>
+        <div class="module-card disabled">
+          <div class="module-header">
+            <div class="module-icon lock">🔒</div>
+            <span class="coming-soon">Coming Soon</span>
+          </div>
+          <h4>Editor del DNA</h4>
+          <p>Spendi Punti Genoma per fabbricare e iniettare nell'ecosistema una specie creata da te.</p>
         </div>
         
         <div class="module-card disabled">
-          <div class="module-icon lock">🔒</div>
-          <h4>Editor del DNA</h4>
-          <p>Spendi Punti Genoma per fabbricare e iniettare nell'ecosistema una specie creata da te. [In Arrivo]</p>
+          <div class="module-header">
+            <div class="module-icon lock">🔒</div>
+            <span class="coming-soon">Coming Soon</span>
+          </div>
+          <h4>Manipolazione Climatica</h4>
+          <p>Aggiungi zone radioattive o ere glaciali alla mappa toroidale per forzare l'evoluzione.</p>
+        </div>
+        
+      </div>
+    </section>
+    
+  </div>
+  <!-- ... (Lascia intatti Header, CTA, Statistiche e Moduli) ... -->
+    
+    <!-- LA NUOVA SEZIONE: IL TUO CODEX PRIVATO -->
+    <section class="codex-section fade-up delay-2" style="margin-top: 40px;">
+      <h2>Il Tuo Codex Genomico <span class="status-dot"></span></h2>
+      <p style="color: #94a3b8; margin-top: -15px; margin-bottom: 20px;">Le specie che hai catalogato durante le simulazioni.</p>
+      
+      <!-- Se non hai ancora scoperto nulla -->
+      <div *ngIf="codexDatabase.length === 0" style="padding: 40px; text-align: center; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); border-radius: 16px; color: #64748b;">
+        Nessuna specie catalogata. Entra nel mondo e usa lo strumento 🏷️ Censisci.
+      </div>
+
+      <div class="codex-grid" *ngIf="codexDatabase.length > 0">
+        <div class="codex-card" *ngFor="let s of codexDatabase" (click)="openSpeciesInfo(s)">
+          <div class="mini-holo">
+            <div class="pixel-dot" [ngClass]="p[0] === 'Neuro' ? 'neuro' : (p[0] === 'Gastro' ? 'gastro' : 'power')" *ngFor="let p of s.morphology"></div>
+          </div>
+          <div class="codex-card-info">
+            <span class="species-id">{{ s.name }}</span>
+            <h4>Gen: {{ s.generation }} <span style="font-size:0.8rem; color:#f59e0b;">(Fit: {{ s.fitness | number:'1.0-0' }})</span></h4>
+            <span class="type-tag" [class.native]="s.type === 'Prede'" [class.invasive]="s.type === 'Predatore'">{{ s.type }}</span>
+          </div>
         </div>
       </div>
     </section>
 
+  </div> <!-- Fine profile-container -->
+</div> <!-- Fine profile-layout -->
+
+<!-- ============================================== -->
+<!-- IL MODAL OLOGRAFICO DEL CODEX (POPUP) -->
+<!-- ============================================== -->
+<div class="species-modal-overlay" *ngIf="selectedSpecies">
+  <div class="species-modal">
+    <button class="close-btn" (click)="closeSpeciesInfo()">✕</button>
+    
+    <div class="modal-layout">
+      <!-- Olo-Simulatore (Sinistra) -->
+      <div class="holodeck-container">
+        <div class="holo-header">Olo-Simulatore: Scatola Petri</div>
+        <canvas #holoCanvas width="350" height="250" class="holo-canvas"></canvas>
+        
+        <div class="holo-header" style="margin-top: 10px;">Topologia Neurale Censita</div>
+        <div style="background: rgba(0,0,0,0.5); padding: 10px;">
+          <canvas #holoBrainCanvas width="330" height="200" style="width: 100%; display: block;"></canvas>
+        </div>
+      </div>
+
+      <!-- Dati Analitici (Destra) -->
+      <div class="species-data">
+        <span class="type-badge" [class.invasive]="selectedSpecies.type === 'Predatore'">{{ selectedSpecies.type }}</span>
+        <h2>{{ selectedSpecies.name }} <span class="id-dim">[{{ selectedSpecies.id }}]</span></h2>
+        <hr class="cyber-line">
+        <p class="desc">{{ selectedSpecies.desc }}</p>
+        
+        <div class="stats-box">
+          <div class="s-row"><span>Velocità Base:</span> <strong>{{ selectedSpecies.stats.speed }}</strong></div>
+          <div class="s-row"><span>Alimentazione:</span> <strong>{{ selectedSpecies.stats.diet }}</strong></div>
+          <div class="s-row"><span>Complessità Cellulare:</span> <strong>{{ selectedSpecies.morphology.length }} Pixel</strong></div>
+        </div>
+
+        <div class="stats-box" style="margin-top: 15px;">
+           <h4>Legenda Neurale:</h4>
+           <p style="font-size: 0.85rem; color: #94a3b8; line-height: 1.4; margin-bottom: 0;">
+             <strong>19 Nodi a Sinistra:</strong> I 15 occhi vettoriali, Fame, Sete, Acido Lattico, Dolore.<br>
+             <strong>Nodi Centrali (Viola):</strong> Memoria a breve termine (CTRNN).<br>
+             <strong>Nodi Destri (Arancio):</strong> Muscoli motori (Sterzo e Accelerazione).
+           </p>
+        </div>
+      </div>
+    </div>
   </div>
+</div>
 </div>
